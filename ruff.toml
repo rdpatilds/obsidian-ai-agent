@@ -1,0 +1,53 @@
+# Ruff configuration for strict type safety and code quality
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "ANN",    # flake8-annotations (type hints)
+    "ASYNC",  # flake8-async
+    "S",      # flake8-bandit (security)
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez
+    "T10",    # flake8-debugger
+    "EM",     # flake8-errmsg
+    "ICN",    # flake8-import-conventions
+    "PIE",    # flake8-pie
+    "T20",    # flake8-print
+    "PT",     # flake8-pytest-style
+    "Q",      # flake8-quotes
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate (commented-out code)
+    "PL",     # pylint
+    "TRY",    # tryceratops
+    "RUF",    # ruff-specific rules
+]
+
+ignore = [
+    "D",       # pydocstyle (we'll enable later if needed)
+]
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "PLR2004", "ANN201"]  # Allow assert, magic values, and missing return types in tests
+
+[lint.isort]
+force-single-line = false
+lines-after-imports = 2
+known-first-party = ["src"]
+
+[lint.flake8-annotations]
+allow-star-arg-any = true
+suppress-none-returning = true

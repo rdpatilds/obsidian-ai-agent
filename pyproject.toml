@@ -1,0 +1,82 @@
+[project]
+name = "course-project-demo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "aioshutil>=1.3",
+    "fastapi>=0.119.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.12.2",
+    "pydantic-ai>=1.0.18",
+    "python-dotenv>=1.1.1",
+    "python-frontmatter>=1.1.0",
+    "structlog>=25.4.0",
+    "uvicorn[standard]>=0.37.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "ruff>=0.14.0",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+# Import mode and Python path
+addopts = "--strict-markers --strict-config -ra"
+pythonpath = ["."]
+
+# Test discovery
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Asyncio support
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+# Markers for test categorization
+markers = [
+    "unit: Unit tests that test individual components in isolation",
+    "integration: Integration tests that test multiple components together",
+    "slow: Tests that take a long time to run",
+    "evaluation: Evaluation tests that measure agent tool performance (requires live API)",
+]
+
+# Output options
+console_output_style = "progress"
+log_cli = false
+log_cli_level = "INFO"
+
+# Coverage (if pytest-cov is installed)
+# addopts = "--cov=src --cov-report=term-missing --cov-report=html"
