@@ -78,6 +78,11 @@ def create_agent(settings: Settings | None = None) -> Agent[AgentDependencies, s
 
         register_obsidian_folder_manager_tool(agent)
 
+    if settings.enable_web_search:
+        from src.tools.web_search.tool import register_web_search_tool  # noqa: PLC0415
+
+        register_web_search_tool(agent)
+
     logger.info(
         "agent_created",
         model=settings.model_name,

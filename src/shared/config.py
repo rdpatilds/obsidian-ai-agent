@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     enable_obsidian_folder_manager: bool = True
     """Enable folder management tool (create/rename/move/delete/list folders)."""
 
+    enable_web_search: bool = True
+    """Enable web search tool (search using DuckDuckGo)."""
+
     # Vault Safety Limits
     max_file_size_mb: int = 10
     """Maximum file size in MB for reading/writing."""
