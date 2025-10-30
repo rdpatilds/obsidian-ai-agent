@@ -10,6 +10,56 @@ OpenAI-compatible API agent for Obsidian CoPilot using FastAPI + Pydantic AI. Fe
 - **AI-Optimized Logging** - Structured logs designed for LLM debugging
 - **Comprehensive Tests** - 248 tests with 100% pass rate
 
+## Quick Start
+
+### Installation
+
+```bash
+git clone https://github.com/Widinglabs/course-project-demo.git
+cd course-project-demo
+uv sync
+cp .env.example .env
+```
+
+### Configuration
+
+Edit `.env`:
+
+```bash
+OBSIDIAN_VAULT_PATH=/path/to/your/vault
+ANTHROPIC_API_KEY=your-key-here
+MODEL_NAME=anthropic:claude-haiku-4-5-20251001
+
+# Optional: Tool toggles
+ENABLE_OBSIDIAN_NOTE_MANAGER=true
+ENABLE_OBSIDIAN_VAULT_QUERY=true
+ENABLE_OBSIDIAN_VAULT_ORGANIZER=true
+ENABLE_OBSIDIAN_GRAPH_ANALYZER=true
+```
+
+### Run
+
+```bash
+uv run uvicorn src.main:app --host 0.0.0.0 --port 8030 --reload
+```
+
+### Test
+
+```bash
+curl http://localhost:8030/health
+
+curl -X POST http://localhost:8030/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer dev-key-change-in-production" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{
+      "role": "user",
+      "content": "Find all notes tagged #project and summarize them"
+    }]
+  }'
+```
+
 ## Core Tools
 
 ### 1. obsidian_note_manage - Note Operations
@@ -124,56 +174,6 @@ All tools support `response_format` for cost optimization:
 | **detailed** | ~1500+ | Full content analysis                   |
 
 **Impact**: Reading 10 notes with `minimal` uses **500 tokens** vs **15,000+ tokens** with `detailed` (30x difference)
-
-## Quick Start
-
-### Installation
-
-```bash
-git clone https://github.com/Widinglabs/course-project-demo.git
-cd course-project-demo
-uv sync
-cp .env.example .env
-```
-
-### Configuration
-
-Edit `.env`:
-
-```bash
-OBSIDIAN_VAULT_PATH=/path/to/your/vault
-ANTHROPIC_API_KEY=your-key-here
-MODEL_NAME=anthropic:claude-haiku-4-5-20251001
-
-# Optional: Tool toggles
-ENABLE_OBSIDIAN_NOTE_MANAGER=true
-ENABLE_OBSIDIAN_VAULT_QUERY=true
-ENABLE_OBSIDIAN_VAULT_ORGANIZER=true
-ENABLE_OBSIDIAN_GRAPH_ANALYZER=true
-```
-
-### Run
-
-```bash
-uv run uvicorn src.main:app --host 0.0.0.0 --port 8030 --reload
-```
-
-### Test
-
-```bash
-curl http://localhost:8030/health
-
-curl -X POST http://localhost:8030/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer dev-key-change-in-production" \
-  -d '{
-    "model": "gpt-4o-mini",
-    "messages": [{
-      "role": "user",
-      "content": "Find all notes tagged #project and summarize them"
-    }]
-  }'
-```
 
 ## Development
 
