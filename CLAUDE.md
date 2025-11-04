@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FastAPI + PostgreSQL application using **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
+**Paddy**: OpenAI-compatible AI agent for Obsidian using **FastAPI + Pydantic AI + PostgreSQL**, vertical slice architecture, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
 
 ## Core Principles
 
@@ -18,10 +18,10 @@ FastAPI + PostgreSQL application using **vertical slice architecture**, optimize
 
 **Vertical Slice Architecture**
 
-- Each feature owns its database models, schemas, routes, and business logic
-- Features live in separate directories under `app/` (e.g., `app/products/`, `app/orders/`)
+- Each feature owns its models, schemas, routes, and business logic (or tools for agent features)
+- Features live in separate directories under `app/` (e.g., `app/products/`, `app/vault_query/`)
 - Shared utilities go in `app/shared/` only when used by 3+ features
-- Core infrastructure (`app/core/`) is shared across all features
+- Core infrastructure (`app/core/`) includes database, config, logging, and the Pydantic AI agent
 
 **Type Safety (CRITICAL)**
 
@@ -35,12 +35,15 @@ FastAPI + PostgreSQL application using **vertical slice architecture**, optimize
 
 **AI-Optimized Patterns**
 
-- Structured logging: Use `domain.component.action_state` pattern (hybrid dotted namespace)
+- **Pydantic AI Agent**: Single agent instance with tool registration via `@agent.tool` decorators
+- **OpenAI Compatibility**: `/v1/chat/completions` endpoint for Obsidian Copilot integration
+- **Tool Design**: Follow Anthropic's "fewer, smarter tools" principle; consolidate related operations
+- **Structured Logging**: Use `domain.component.action_state` pattern (hybrid dotted namespace)
   - Format: `{domain}.{component}.{action}_{state}`
-  - Examples: `user.registration_started`, `product.create_completed`, `agent.tool.execution_failed`
+  - Examples: `agent.tool.execution_started`, `vault.query_completed`, `database.connection_initialized`
   - See `docs/logging-standard.md` for complete event taxonomy
-- Request correlation: All logs include `request_id` automatically via context vars
-- Consistent verbose naming: Predictable patterns for AI code generation
+- **Request Correlation**: All logs include `request_id` automatically via context vars
+- **Verbose Naming**: Predictable patterns for AI code generation
 
 ## Essential Commands
 
@@ -119,11 +122,19 @@ docker-compose down
 
 ```
 app/
-├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
-├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
+├── core/           # Infrastructure (config, database, logging, middleware, agent, health, exceptions)
+├── shared/         # Cross-feature utilities (pagination, timestamps, vault manager)
 ├── main.py         # FastAPI application entry point
-└── features/       # Feature directories (e.g., products/, orders/)
+└── features/       # Feature slices - standard features (models, routes) OR agent tools (tools.py)
+    ├── products/   # Example: Standard database feature (models, routes, service)
+    └── vault_query/ # Example: Agent tool feature (tools.py, models.py)
 ```
+
+**Agent Integration Pattern:**
+- Define agent in `app/core/agent.py`: `vault_agent = Agent('anthropic:claude-sonnet-4-0')`
+- Register tools via `@vault_agent.tool` in feature `tools.py` files
+- Import tool modules in `main.py` for side-effect registration
+- OpenAI compatibility layer in chat routes converts formats
 
 ### Database
 
@@ -189,20 +200,37 @@ def process_request(user_id: str, query: str) -> dict[str, Any]:
     """
 ```
 
-### Tool Docstrings for Agents
+**Agent Tool Docstrings (CRITICAL):**
+Tool docstrings guide LLM tool selection - they differ from standard code documentation:
 
-**Critical Difference:** Tool docstrings are read by LLMs during tool selection. They must guide the agent to choose the RIGHT tool, use it EFFICIENTLY, and compose tools into workflows.
+```python
+@vault_agent.tool
+async def obsidian_query_vault(operation: str, query: str) -> QueryResult:
+    """Search and discover notes in the vault. Use for finding, listing, or exploring content.
 
-Standard Google-style docstrings document **what code does** for human developers.
-Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
+    WHEN TO USE: Any discovery task - finding notes by content/tags/date, listing structure,
+    exploring relationships. This is READ-ONLY - use vault_manager for modifications.
+
+    EFFICIENCY: Use response_format='concise' for simple searches to save tokens.
+    Set to 'detailed' only when you need full metadata for synthesis tasks.
+
+    COMPOSITION: Chain with get_context to read full content after finding relevant notes.
+
+    Args:
+        operation: One of: search, list_vault, find_related, search_by_tag, recent_changes
+        query: Natural language query or specific search terms
+
+    Returns:
+        QueryResult with matching notes, paths, and optional metadata
+    """
+```
 
 **Key Principles:**
-
-1. **Guide Tool Selection** - Agent must choose this tool over alternatives
-2. **Prevent Token Waste** - Steer toward efficient parameter choices
-3. **Enable Composition** - Show how tool fits into multi-step workflows
-4. **Set Expectations** - Explain performance characteristics and limitations
-5. **Provide Examples** - Concrete usage with realistic data
+1. Guide tool selection vs alternatives
+2. Prevent token waste with efficiency guidance
+3. Show composition patterns with other tools
+4. Set performance expectations
+5. Provide concrete usage examples
 
 ### Shared Utilities
 
@@ -223,21 +251,40 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 
 ### Configuration
 
-- Environment variables via Pydantic Settings (`app.core.config`)
-- Required: `DATABASE_URL` (postgresql+asyncpg://...)
+**Environment variables via Pydantic Settings (`app.core.config`):**
+
+- Database: `DATABASE_URL` (postgresql+asyncpg://...)
+- Agent: `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` (for Pydantic AI)
+- Vault: `OBSIDIAN_VAULT_PATH` (absolute path, mounted as `/vault` in Docker)
+- API: `API_KEY` (for Obsidian Copilot authentication)
+- CORS: `ALLOWED_ORIGINS` (app://obsidian.md,capacitor://localhost)
 - Copy `.env.example` to `.env` for local development
 - Settings singleton: `get_settings()` from `app.core.config`
+
+**Docker Volume Mounting:**
+- Vault access via read-write volume mount: `-v ${OBSIDIAN_VAULT_PATH}:/vault:rw`
+- Container sandboxing: only mounted directory accessible
+- Bidirectional sync: changes visible to both agent and Obsidian
 
 ## Development Guidelines
 
 **When Creating New Features**
 
+**Standard Database Features:**
 1. Create feature directory under `app/` (e.g., `app/products/`)
 2. Structure: `models.py`, `schemas.py`, `routes.py`, `service.py`, `tests/`
 3. Models inherit from `Base` and `TimestampMixin`
 4. Use `get_db()` dependency for database sessions
-5. Follow structured logging pattern: `feature.action_state` (e.g., `product.create_started`, `product.create_completed`)
+5. Follow structured logging pattern: `feature.action_state`
 6. Add router to `app/main.py`: `app.include_router(feature_router)`
+
+**Agent Tool Features:**
+1. Create feature directory under `app/` (e.g., `app/vault_query/`)
+2. Structure: `tools.py`, `models.py`, `tests/`
+3. Import agent: `from app.core.agent import vault_agent`
+4. Register tools: `@vault_agent.tool` with LLM-optimized docstrings
+5. Follow logging pattern: `agent.tool.execution_started`, `vault.operation_completed`
+6. Import in `main.py` for side-effect registration: `import app.vault_query.tools  # noqa: F401`
 
 **Type Checking**
 
@@ -257,9 +304,13 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 - Start action: `logger.info("feature.action_started", **context)`
 - Success: `logger.info("feature.action_completed", **context)`
 - Failure: `logger.error("feature.action_failed", exc_info=True, error=str(e), error_type=type(e).__name__, **context)`
-- Include context: IDs, durations, error details
+- Agent tools: `logger.info("agent.tool.execution_started", tool="query_vault", operation="search")`
+- Include context: IDs, durations, error details, `fix_suggestion` for AI self-correction
 - Avoid generic events like "processing" or "handling"
 - Use standard states: `_started`, `_completed`, `_failed`, `_validated`, `_rejected`
+- **DO NOT log sensitive data:** passwords, API keys, tokens (mask: `api_key[:8] + "..."`)
+- **DO NOT spam logs in loops:** Log batch summaries instead
+- **DO NOT silently catch exceptions:** Always log with `logger.exception()` or re-raise
 
 **Database Patterns**
 
@@ -270,7 +321,9 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 
 **API Patterns**
 
-- Health checks: `/health`, `/health/db`, `/health/ready`
-- Pagination: Use `PaginationParams` and `PaginatedResponse[T]`
-- Error responses: Use `ErrorResponse` schema
-- Route prefixes: Use router `prefix` parameter for feature namespacing
+- **Agent Endpoint**: `POST /v1/chat/completions` (OpenAI-compatible for Obsidian Copilot)
+- **Health Checks**: `/health`, `/health/db`, `/health/ready`
+- **Pagination**: Use `PaginationParams` and `PaginatedResponse[T]`
+- **Error Responses**: Use `ErrorResponse` schema
+- **Route Prefixes**: Use router `prefix` parameter for feature namespacing
+- **Authentication**: Bearer token via `Authorization: Bearer <API_KEY>` header

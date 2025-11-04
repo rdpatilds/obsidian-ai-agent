@@ -1,90 +1,125 @@
-# FastAPI + PostgreSQL Template
+# Paddy - Obsidian AI Agent
 
-Production-ready FastAPI template with vertical slice architecture, optimized for AI-assisted development.
+AI agent for Obsidian using natural language to query, read, and manage your vault. Built with Pydantic AI + FastAPI, providing an OpenAI-compatible API for Obsidian Copilot.
 
-**Zero config • Type-safe • AI-coding-optimized**
+**Self-hosted • Provider-agnostic • Type-safe • Production-ready**
 
 ## Quick Start
 
 ```bash
-# 1. Use this template (GitHub) or clone
-git clone <your-repo>
-cd <your-project>
-
-# 2. Install dependencies
+# 1. Clone and install
+git clone https://github.com/yourusername/obsidian-ai-agent
+cd obsidian-ai-agent
 uv sync
 
-# 3. Start services
+# 2. Configure environment
+cp .env.example .env
+# Edit .env - set your vault path, LLM provider, and API keys
+
+# 3. Start services (optional: database for conversation history)
 docker-compose up -d
 
-# 4. Run migrations
+# 4. Run database migrations (if using database)
 uv run alembic upgrade head
 
-# 5. Start development
+# 5. Start the agent
 uv run uvicorn app.main:app --reload --port 8123
 ```
 
-Visit `http://localhost:8123/docs` for Swagger UI.
+## Obsidian Setup
+
+1. Install **Obsidian Copilot** plugin
+2. Configure custom endpoint: `http://localhost:8123/v1/chat/completions`
+3. Set API key (from your `.env` file)
+4. Start chatting with your vault!
+
+Visit `http://localhost:8123/docs` for API documentation.
 
 ## What's Inside
+
+**AI Agent**
+
+- Pydantic AI agent with tool orchestration
+- OpenAI-compatible API (`/v1/chat/completions`)
+- Provider-agnostic (Anthropic, OpenAI, Google, local models)
+- 3 consolidated tools following Anthropic best practices
+- Vault access via Docker volume mounting
 
 **Core Infrastructure**
 
 - FastAPI with async/await
-- PostgreSQL (Docker/Supabase/Neon/Railway)
+- PostgreSQL (optional, for conversation history)
 - SQLAlchemy + Alembic migrations
-- Pydantic settings with .env support
+- Pydantic Settings with .env support
+- Vertical Slice Architecture
 
 **Developer Experience**
 
 - Strict type checking (MyPy + Pyright)
 - Ruff linting & formatting
-- Structured logging with request correlation
+- Structured logging optimized for AI debugging
 - Health check endpoints
-- Docker multi-stage builds
+- Docker containerization
 
-**AI Optimization**
+**Agent Capabilities**
 
-- Grep-able event logging
-- Consistent naming patterns
-- Shared utilities (pagination, timestamps)
-- Self-correcting feedback loops
+- Natural language vault queries
+- Semantic search across notes
+- Context-aware note reading
+- Note creation, updating, appending
+- Bulk operations (tagging, moving, organizing)
+- Folder management
 
 ## Project Structure
 
 ```
 app/
-├── core/           # Infrastructure (config, database, logging, middleware)
-├── shared/         # Cross-feature utilities (pagination, timestamps)
-├── examples/       # Example feature slice (delete in your project)
-└── main.py         # FastAPI application
+├── core/              # Infrastructure
+│   ├── agent.py       # Pydantic AI agent instance
+│   ├── config.py      # Settings & environment
+│   ├── database.py    # PostgreSQL connection
+│   └── logging.py     # Structured logging
+├── shared/            # Cross-feature utilities
+│   └── vault/         # Vault access layer
+│       ├── manager.py # File operations
+│       └── models.py  # Domain models
+├── features/          # Vertical slices
+│   ├── chat/          # OpenAI-compatible chat endpoint
+│   ├── vault_query/   # Discovery & search tool
+│   ├── vault_context/ # Context-aware reading tool
+│   └── vault_management/ # Modification operations tool
+└── main.py            # FastAPI application entry
 ```
 
-## Customization
+See [PRD.md](.agents/PRD.md) for detailed architecture and tool specifications.
 
-1. Update `name` in `pyproject.toml`
-2. Update `APP_NAME` in `.env.example`
-3. Copy `.env.example` to `.env`
-4. Update database name/credentials
-5. Delete `app/examples/` (demo feature)
-6. Build your first feature slice
+## Configuration
 
-## Database Providers
+**Required Environment Variables:**
 
-Works with any PostgreSQL provider:
+```bash
+# LLM Provider (choose one)
+LLM_PROVIDER=anthropic        # anthropic | openai | google | ollama
+LLM_MODEL=claude-sonnet-4-0   # Provider-specific model
+LLM_API_KEY=sk-ant-...        # Your provider API key
+
+# Vault Access
+OBSIDIAN_VAULT_PATH=/absolute/path/to/your/vault
+
+# API Authentication
+API_KEY=your-secret-key       # For Obsidian Copilot
+
+# CORS (for Obsidian)
+ALLOWED_ORIGINS=app://obsidian.md,capacitor://localhost
+```
+
+**Optional: PostgreSQL (for conversation history)**
 
 ```bash
 # Docker (default)
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/mydb
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/paddy
 
-# Supabase
-DATABASE_URL=postgresql+asyncpg://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres
-
-# Neon
-DATABASE_URL=postgresql+asyncpg://[USER]:[PASSWORD]@[HOST].neon.tech/[DB]?sslmode=require
-
-# Railway
-DATABASE_URL=postgresql+asyncpg://postgres:[PASSWORD]@[HOST].railway.app:[PORT]/railway
+# Cloud Providers: Supabase, Neon, Railway also supported
 ```
 
 ## Commands
@@ -118,51 +153,70 @@ docker-compose down                 # Stop services
 
 ## Slash Commands
 
-Built-in Claude Code commands:
+Built-in Claude Code commands for development:
 
+- `/prime` - Prime agent with codebase understanding
 - `/commit` - Create atomic commits with proper messages
 - `/validate` - Run full validation suite (tests, types, linting, docker)
-- `/check-ignore-comments` - Analyze type suppressions
 
 ## Features
 
-- Type safety: Strict mode, zero suppressions
-- Testing: 34 tests, <0.3s execution
-- Logging: JSON structured, request correlation
-- CORS: Configured for local development
-- Migrations: Alembic with async support
+**Agent**
+- 3 consolidated tools (query, context, management)
+- OpenAI-compatible API endpoint
+- Provider-agnostic LLM support
+- Docker volume mounting for vault access
+- Natural language vault interactions
+
+**Engineering**
+- Type safety: Strict MyPy + Pyright, zero suppressions
+- Logging: JSON structured, AI-optimized debugging
+- CORS: Configured for Obsidian app protocol
 - Health checks: `/health`, `/health/db`, `/health/ready`
-- Docker: Multi-stage builds, hot reload
-- Pagination: Shared utilities, consistent patterns
-- Timestamps: Automatic tracking on all models
+- Docker: Containerized deployment
+- Testing: Integration + unit tests with pytest
 
 ## Architecture Principles
 
-**Vertical Slice**
+**Vertical Slice Architecture**
 
-- Features own their database models, logic, and routes
-- Core infrastructure (config, database, logging) is shared
-- Shared utilities extracted when used by 3+ features
+- Each feature is self-contained: tools + models + routes
+- Agent tools register via `@agent.tool` decorators
+- Core infrastructure (agent, config, logging) is shared
+- Vault operations abstracted in `shared/vault/`
 
-**AI-Friendly**
+**Single Agent Pattern**
 
-- Grep-able structured logging: `logger.info("feature.action.status")`
-- Type hints everywhere: AI understands contracts
-- Consistent patterns: Predictable code generation
-- Fast feedback: Linting/typing catches errors immediately
+- One Pydantic AI agent instance in `core/agent.py`
+- Tools register via side-effect imports in `main.py`
+- OpenAI compatibility layer converts formats
+- Follows Anthropic's "fewer, smarter tools" principle
+
+**AI-Optimized Development**
+
+- Structured logging optimized for LLM debugging
+- Tool docstrings guide LLM tool selection
+- Type hints everywhere for AI code generation
+- Fast feedback loops (strict type checking, tests)
 
 ## Tech Stack
+
+**AI Agent**
+
+- Pydantic AI 0.0.14+ (agent framework)
+- Anthropic Claude / OpenAI / Google Gemini / Local models
+- OpenAI-compatible API format
 
 **Backend**
 
 - Python 3.12+
 - FastAPI 0.120+
-- SQLAlchemy 2.0+ (async)
-- Pydantic 2.0+
+- Pydantic 2.0+ (validation & settings)
+- SQLAlchemy 2.0+ (async, optional)
 
-**Database**
+**Database (Optional)**
 
-- PostgreSQL 18 (any provider)
+- PostgreSQL 18+ (for conversation history)
 - Alembic migrations
 - asyncpg driver
 
@@ -170,17 +224,25 @@ Built-in Claude Code commands:
 
 - uv (package manager)
 - Ruff (linting/formatting)
-- MyPy + Pyright (type checking)
+- MyPy + Pyright (strict type checking)
 - pytest (testing)
 - Docker + Docker Compose
 
+**Integration**
+
+- Obsidian Copilot plugin (frontend)
+- Docker volume mounting (vault access)
+
 ## Requirements
 
-- Python 3.12+
-- uv (or pip)
-- Docker + Docker Compose
-- PostgreSQL 18+ (via Docker or cloud provider)
+- **Python 3.12+**
+- **uv** package manager (or pip)
+- **LLM API Key** (Anthropic, OpenAI, Google, or local model)
+- **Obsidian** with Copilot plugin
+- **Docker** (optional, for database and containerized deployment)
 
-## License
+## Documentation
 
-MIT
+- [PRD.md](.agents/PRD.md) - Product requirements and specifications
+- [CLAUDE.md](CLAUDE.md) - Development guidelines for Claude Code
+- [API Docs](http://localhost:8123/docs) - Interactive API documentation (when running)
