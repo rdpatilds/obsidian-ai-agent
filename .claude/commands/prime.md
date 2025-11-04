@@ -16,7 +16,7 @@ List all tracked files:
 !`git ls-files`
 
 Show directory structure:
-!`tree -L 3 -I 'node_modules|__pycache__|.git|dist|build'`
+On Linux, run: `tree -L 3 -I 'node_modules|__pycache__|.git|dist|build'`
 
 ### 2. Read Core Documentation
 

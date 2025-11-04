@@ -2,6 +2,8 @@
 
 Feature description: $ARGUMENTS
 
+Make sure the structured plan you create is between 500 and 700 lines long. You have failed if you create a plan that isn't within this range.
+
 Whats below here is a template for you to fill for the implementation agent:
 
 ```markdown
