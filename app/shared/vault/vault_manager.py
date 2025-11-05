@@ -155,14 +155,22 @@ class VaultManager:
         return note
 
     def search_content(self, query: str, limit: int = 10) -> list[Note]:
-        """Search note content for query string (case-insensitive).
+        """Search notes by filename, title, and content (case-insensitive hybrid search).
+
+        Scoring strategy:
+        - Filename matches: 100 points per occurrence (highest priority)
+        - Title matches: 50 points per occurrence (high priority)
+        - Content matches: 1 point per occurrence (base relevance)
+
+        This ensures files like "Excal-4-GlobalRules.md" are found when
+        searching for "GlobalRules", even if content doesn't match.
 
         Args:
             query: Search query string.
             limit: Maximum number of results.
 
         Returns:
-            List of matching notes, sorted by relevance (most matches first).
+            List of matching notes, sorted by relevance score (highest first).
         """
         self.logger.info("vault.search_started", query=query, limit=limit)
 
@@ -171,25 +179,49 @@ class VaultManager:
 
         for md_file in self.vault_root.rglob("*.md"):
             try:
-                content = md_file.read_text(encoding="utf-8")
-                # Count occurrences for relevance
-                occurrences = content.lower().count(query_lower)
+                # Read file and parse note
+                relative = md_file.relative_to(self.vault_root)
+                note = self.read_note(str(relative))
 
-                if occurrences > 0:
-                    relative = md_file.relative_to(self.vault_root)
-                    note = self.read_note(str(relative))
-                    results.append((note, occurrences))
+                # Calculate relevance score with weighted matches
+                score = 0
+
+                # Check filename (stem without .md extension) - 100 points per match
+                filename_lower = md_file.stem.lower()
+                filename_matches = filename_lower.count(query_lower)
+                score += filename_matches * 100
+
+                # Check title (from frontmatter or filename) - 50 points per match
+                title_lower = note.title.lower()
+                title_matches = title_lower.count(query_lower)
+                score += title_matches * 50
+
+                # Check content - 1 point per match
+                content_lower = note.content.lower()
+                content_matches = content_lower.count(query_lower)
+                score += content_matches
+
+                if score > 0:
+                    results.append((note, score))
+                    self.logger.debug(
+                        "vault.search_match",
+                        path=str(relative),
+                        score=score,
+                        filename_matches=filename_matches,
+                        title_matches=title_matches,
+                        content_matches=content_matches,
+                    )
 
             except Exception as e:
                 self.logger.warning("vault.search_file_skipped", file=str(md_file), error=str(e))
                 continue
 
-        # Sort by relevance (occurrences) descending
+        # Sort by relevance score descending
         results.sort(key=lambda x: x[1], reverse=True)
 
         notes = [note for note, _ in results[:limit]]
 
-        self.logger.info("vault.search_completed", result_count=len(notes))
+        self.logger.info("vault.search_completed", result_count=len(notes), total_matches=len(results))
 
         return notes
 
