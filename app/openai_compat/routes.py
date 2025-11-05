@@ -18,7 +18,13 @@ from collections.abc import AsyncGenerator, Sequence
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelMessage, PartDeltaEvent, TextPartDelta
+from pydantic_ai.messages import (
+    ModelMessage,
+    PartDeltaEvent,
+    PartStartEvent,
+    TextPart,
+    TextPartDelta,
+)
 
 from app.core.agents import AgentDeps, vault_agent
 from app.core.config import get_settings
@@ -133,28 +139,56 @@ async def stream_openai_response(
             message_history=message_history,
             deps=AgentDeps(vault_manager=vault_manager, settings=settings),
         ) as run:
-            async for node in run:
-                # Send empty role chunk first (OpenAI SSE spec requirement)
-                if not builder.role_chunk_sent:
-                    yield builder.format_sse(builder.build_role_chunk())
-                    builder.role_chunk_sent = True
+            # Send empty role chunk FIRST (OpenAI SSE spec requirement)
+            # Must be sent before any content to properly initialize the response
+            role_chunk = builder.build_role_chunk()
+            logger.debug(
+                "agent.stream.chunk_sending",
+                chunk_type="role",
+                delta=role_chunk["choices"][0]["delta"],
+            )
+            yield builder.format_sse(role_chunk)
+            builder.role_chunk_sent = True
 
+            async for node in run:
                 if Agent.is_model_request_node(node):
                     async with node.stream(run.ctx) as request_stream:
                         async for event in request_stream:
-                            if isinstance(event, PartDeltaEvent):
+                            # Handle initial text part (contains first chunk)
+                            if isinstance(event, PartStartEvent):
+                                if isinstance(event.part, TextPart) and event.part.content:
+                                    chunk = builder.build_content_chunk(event.part.content)
+                                    logger.debug(
+                                        "agent.stream.chunk_sending",
+                                        chunk_type="start",
+                                        content=event.part.content,
+                                    )
+                                    yield builder.format_sse(chunk)
+
+                            # Handle text deltas (subsequent chunks)
+                            elif isinstance(event, PartDeltaEvent):
                                 if isinstance(event.delta, TextPartDelta):
                                     if event.delta.content_delta:
-                                        # Build and yield content chunk
                                         chunk = builder.build_content_chunk(
                                             event.delta.content_delta
+                                        )
+                                        logger.debug(
+                                            "agent.stream.chunk_sending",
+                                            chunk_type="delta",
+                                            content=event.delta.content_delta,
                                         )
                                         yield builder.format_sse(chunk)
 
                 elif Agent.is_call_tools_node(node):
-                    # Insert newlines between agent responses and tool calls for better UX
-                    # This provides visual separation in the client UI
+                    # CallToolsNode emits tool call/result events, not text events
+                    # We'll just insert newlines for visual separation after tool execution
+                    # Text content comes from subsequent ModelRequestNode, not CallToolsNode
                     newline_chunk = builder.build_content_chunk("\n\n")
+                    logger.debug(
+                        "agent.stream.chunk_sending",
+                        chunk_type="tool_separator",
+                        content="\\n\\n",
+                    )
                     yield builder.format_sse(newline_chunk)
 
                 elif Agent.is_end_node(node):
