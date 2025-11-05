@@ -134,6 +134,11 @@ async def stream_openai_response(
             deps=AgentDeps(vault_manager=vault_manager, settings=settings),
         ) as run:
             async for node in run:
+                # Send empty role chunk first (OpenAI SSE spec requirement)
+                if not builder.role_chunk_sent:
+                    yield builder.format_sse(builder.build_role_chunk())
+                    builder.role_chunk_sent = True
+
                 if Agent.is_model_request_node(node):
                     async with node.stream(run.ctx) as request_stream:
                         async for event in request_stream:
@@ -145,6 +150,12 @@ async def stream_openai_response(
                                             event.delta.content_delta
                                         )
                                         yield builder.format_sse(chunk)
+
+                elif Agent.is_call_tools_node(node):
+                    # Insert newlines between agent responses and tool calls for better UX
+                    # This provides visual separation in the client UI
+                    newline_chunk = builder.build_content_chunk("\n\n")
+                    yield builder.format_sse(newline_chunk)
 
                 elif Agent.is_end_node(node):
                     # Get usage statistics after completion

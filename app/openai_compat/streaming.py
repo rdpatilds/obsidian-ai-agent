@@ -37,40 +37,31 @@ class StreamChunkBuilder:
         self.completion_id = f"chatcmpl-{uuid.uuid4().hex[:29]}"
         self.created = int(time.time())
         self.model = model
-        self.first_chunk_sent = False
+        self.role_chunk_sent = False
 
-    def build_content_chunk(self, content: str) -> dict[str, Any]:
-        """Build a content chunk with streaming text delta.
+    def build_role_chunk(self) -> dict[str, Any]:
+        """Build the initial empty chunk with role only (OpenAI SSE spec).
 
-        The first chunk includes both role and content in the delta.
-        Subsequent chunks include only content.
-
-        Args:
-            content: Text content delta to include in the chunk.
+        According to OpenAI's SSE specification, the first chunk MUST include
+        the role with empty content. This ensures the client knows the assistant
+        is responding before any actual content is streamed.
 
         Returns:
-            Chunk dictionary ready for JSON serialization.
+            First chunk dictionary with role and empty content.
 
         Example:
-            First chunk:
             {
                 "id": "chatcmpl-...",
-                "choices": [{"delta": {"role": "assistant", "content": ""}}]
-            }
-
-            Subsequent chunks:
-            {
-                "id": "chatcmpl-...",
-                "choices": [{"delta": {"content": "Hello"}}]
+                "object": "chat.completion.chunk",
+                "created": 1736083200,
+                "model": "claude-sonnet-4-0",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": ""},
+                    "finish_reason": None
+                }]
             }
         """
-        delta: dict[str, Any] = {"content": content}
-
-        # First chunk must include role
-        if not self.first_chunk_sent:
-            delta["role"] = "assistant"
-            self.first_chunk_sent = True
-
         return {
             "id": self.completion_id,
             "object": "chat.completion.chunk",
@@ -79,7 +70,46 @@ class StreamChunkBuilder:
             "choices": [
                 {
                     "index": 0,
-                    "delta": delta,
+                    "delta": {"role": "assistant", "content": ""},
+                    "finish_reason": None,
+                }
+            ],
+        }
+
+    def build_content_chunk(self, content: str) -> dict[str, Any]:
+        """Build a content chunk with streaming text delta.
+
+        Content chunks include ONLY the content delta, no role.
+        The role is sent once in the initial chunk via build_role_chunk().
+
+        Args:
+            content: Text content delta to include in the chunk.
+
+        Returns:
+            Chunk dictionary ready for JSON serialization.
+
+        Example:
+            {
+                "id": "chatcmpl-...",
+                "object": "chat.completion.chunk",
+                "created": 1736083200,
+                "model": "claude-sonnet-4-0",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": "Hello"},
+                    "finish_reason": None
+                }]
+            }
+        """
+        return {
+            "id": self.completion_id,
+            "object": "chat.completion.chunk",
+            "created": self.created,
+            "model": self.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": content},
                     "finish_reason": None,
                 }
             ],

@@ -13,36 +13,39 @@ def test_builder_initialization() -> None:
     assert builder.completion_id.startswith("chatcmpl-")
     assert len(builder.completion_id) == 38  # "chatcmpl-" (9) + 29 hex chars = 38
     assert builder.created > 0
-    assert builder.first_chunk_sent is False
+    assert builder.role_chunk_sent is False
 
 
-def test_first_chunk_has_role() -> None:
-    """Test first chunk includes role in delta."""
+def test_role_chunk_structure() -> None:
+    """Test role chunk has correct structure with empty content (OpenAI SSE spec)."""
     builder = StreamChunkBuilder(model="test-model")
-    chunk = builder.build_content_chunk("Hello")
+    chunk = builder.build_role_chunk()
 
     assert chunk["id"] == builder.completion_id
     assert chunk["object"] == "chat.completion.chunk"
     assert chunk["model"] == "test-model"
     assert len(chunk["choices"]) == 1
     assert chunk["choices"][0]["delta"]["role"] == "assistant"
-    assert chunk["choices"][0]["delta"]["content"] == "Hello"
+    assert chunk["choices"][0]["delta"]["content"] == ""
     assert chunk["choices"][0]["finish_reason"] is None
-    assert builder.first_chunk_sent is True
 
 
-def test_subsequent_chunks_no_role() -> None:
-    """Test subsequent chunks do not include role."""
+def test_content_chunks_never_have_role() -> None:
+    """Test content chunks never include role (only in build_role_chunk)."""
     builder = StreamChunkBuilder(model="test-model")
 
-    # First chunk
+    # Build multiple content chunks
     first_chunk = builder.build_content_chunk("Hello")
-    assert "role" in first_chunk["choices"][0]["delta"]
-
-    # Second chunk
     second_chunk = builder.build_content_chunk(" World")
+
+    # Neither should have role
+    assert "role" not in first_chunk["choices"][0]["delta"]
     assert "role" not in second_chunk["choices"][0]["delta"]
+
+    # Both should have content
+    assert first_chunk["choices"][0]["delta"]["content"] == "Hello"
     assert second_chunk["choices"][0]["delta"]["content"] == " World"
+    assert first_chunk["choices"][0]["finish_reason"] is None
     assert second_chunk["choices"][0]["finish_reason"] is None
 
 
@@ -55,10 +58,8 @@ def test_multiple_content_chunks() -> None:
         chunk = builder.build_content_chunk(text)
         chunks.append(chunk)
 
-    # First chunk has role
-    assert "role" in chunks[0]["choices"][0]["delta"]
-    # Others don't
-    for chunk in chunks[1:]:
+    # None should have role (role is only in build_role_chunk)
+    for chunk in chunks:
         assert "role" not in chunk["choices"][0]["delta"]
 
     # All have content
@@ -175,6 +176,10 @@ def test_full_streaming_sequence() -> None:
     # Simulate streaming response
     chunks = []
 
+    # Role chunk first (OpenAI SSE spec)
+    role_chunk = builder.build_role_chunk()
+    chunks.append(builder.format_sse(role_chunk))
+
     # Content chunks
     for text in ["Hello", " there", "!"]:
         chunk = builder.build_content_chunk(text)
@@ -185,11 +190,17 @@ def test_full_streaming_sequence() -> None:
     chunks.append(builder.format_sse(final))
 
     # Verify all chunks
-    assert len(chunks) == 4
+    assert len(chunks) == 5  # role + 3 content + final
 
-    # First chunk has role
+    # First chunk has role with empty content
     first_data = json.loads(chunks[0].replace("data: ", "").strip())
     assert first_data["choices"][0]["delta"]["role"] == "assistant"
+    assert first_data["choices"][0]["delta"]["content"] == ""
+
+    # Content chunks have no role
+    for i in range(1, 4):
+        content_data = json.loads(chunks[i].replace("data: ", "").strip())
+        assert "role" not in content_data["choices"][0]["delta"]
 
     # Last chunk has usage
     last_data = json.loads(chunks[-1].replace("data: ", "").strip())

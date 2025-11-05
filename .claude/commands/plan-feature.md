@@ -92,6 +92,30 @@ So that <benefit/value>
 
 **Use specialized subagents when beneficial for external research:**
 
+**Research Report Validation (CRITICAL FIRST STEP):**
+
+Before conducting new research, validate existing research reports:
+
+- Check `.agents/report/` for relevant research documents
+- **Read each report thoroughly** - don't just skim
+- **Validate completeness** - does it answer ALL implementation questions?
+  - Are ALL mentioned components/patterns actually explained with code examples?
+  - Does it cover edge cases and error handling?
+  - Are there references to concepts without full implementation details?
+- **Identify gaps** - what's mentioned but not fully explained?
+- **Fill gaps immediately** - research missing details before proceeding
+- Document which reports were validated and any gaps found
+
+**Example Gap Analysis:**
+```markdown
+Report: research-report-streaming.md
+✓ Covers: Basic streaming pattern
+✗ Gap Found: Mentions CallToolsNode but no handling code
+✗ Gap Found: Says "first chunk includes role" but no empty chunk requirement
+→ Action: Research OpenAI SSE spec for first chunk requirements
+→ Action: Research Pydantic AI CallToolsNode attributes and usage
+```
+
 **Documentation Gathering:**
 
 - Research latest library versions and best practices
