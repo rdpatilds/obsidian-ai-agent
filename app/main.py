@@ -24,6 +24,7 @@ from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
+from app.openai_compat.routes import router as openai_compat_router
 
 settings = get_settings()
 
@@ -77,6 +78,7 @@ setup_exception_handlers(app)
 # Include routers
 app.include_router(health_router)
 app.include_router(agent_router)
+app.include_router(openai_compat_router)
 
 
 @app.get("/")

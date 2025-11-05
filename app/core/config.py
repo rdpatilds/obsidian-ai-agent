@@ -43,7 +43,12 @@ class Settings(BaseSettings):
     database_url: str
 
     # CORS settings
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8123"]
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8123",
+        "app://obsidian.md",
+        "capacitor://localhost",
+    ]
 
     # LLM Configuration
     anthropic_api_key: str
