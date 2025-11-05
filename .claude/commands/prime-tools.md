@@ -1,10 +1,10 @@
 # Prime for Tool Development
 
-Load tool development patterns from Module 3 to prepare for building agent tools.
+Load tool development patterns from Module 3 to prepare for building agent tools and do the rest of the priming.
 
 ## Context
 
-You are about to work on building or modifying agent tools that will be used by Pydantic AI agents. Load the comprehensive patterns and best practices we established in Module 3 for writing agent-optimized tool docstrings.
+You are about to work on building or modifying agent tools that will be used by Pydantic AI agents. Load the comprehensive patterns and best practices we established for writing agent-optimized tool docstrings and do the regular priming outlined below too.
 
 ## Read
 
@@ -12,7 +12,7 @@ Read the tool docstring patterns: @.agents/reference/adding_tools_guide.md
 
 ## Process
 
-Understand and internalize:
+### 1. For the tool guide, understand and internalize:
 
 1. **Core Philosophy** - How agent tool docstrings differ from standard docstrings
 2. **7 Required Elements** - One-line summary, "Use this when", "Do NOT use", Args with guidance, Returns, Performance Notes, Examples
@@ -28,25 +28,64 @@ Pay special attention to:
 - Performance Notes (token costs, execution time, limits)
 - Realistic examples (not "foo", "bar", "test.md")
 
-## Report Back
+### 2. Analyze Project Structure
 
-Provide a concise summary with:
+List all tracked files:
+!`git ls-files`
 
-### Key Principles (5 bullets max)
+Show directory structure:
+On Linux, run: `tree -L 3 -I 'node_modules|__pycache__|.git|dist|build'`
 
-- [What are the core principles you understood?]
+### 3. Read Core Documentation
 
-### Critical Distinctions
+- Read CLAUDE.md or similar global rules file
+- Read README files at project root and major directories
+- Read any architecture documentation
 
-- [What makes agent tool docstrings different from standard docstrings?]
-- [Why does "Do NOT use" matter?]
+### 4. Identify Key Files
 
-### Template Internalized
+Based on the structure, identify and read:
+- Main entry points (main.py, index.ts, app.py, etc.)
+- Core configuration files (pyproject.toml, package.json, tsconfig.json)
+- Key model/schema definitions
+- Important service or controller files
 
-- [Confirm you understand the structure you'll follow]
+### 5. Understand Current State
 
-### Ready to Apply
+Check recent activity:
+!`git log -10 --oneline`
 
-- [One sentence confirming you're ready to write agent-optimized tool docstrings]
+Check current branch and status:
+!`git status`
 
-Keep it scannable - I want to verify understanding in 30 seconds.
+## Output Report
+
+Provide a concise summary covering:
+
+### Project Overview
+- Purpose and type of application
+- Primary technologies and frameworks
+- Current version/state
+
+### Architecture
+- Overall structure and organization
+- Key architectural patterns identified
+- Important directories and their purposes
+
+### Tech Stack
+- Languages and versions
+- Frameworks and major libraries
+- Build tools and package managers
+- Testing frameworks
+
+### Core Principles
+- Code style and conventions observed
+- Documentation standards
+- Testing approach
+
+### Current State
+- Active branch
+- Recent changes or development focus
+- Any immediate observations or concerns
+
+**Make this summary easy to scan - use bullet points and clear headers.**
