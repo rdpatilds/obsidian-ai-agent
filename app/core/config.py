@@ -9,7 +9,11 @@ This module provides centralized configuration management:
 
 from functools import lru_cache
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -40,6 +44,10 @@ class Settings(BaseSettings):
 
     # CORS settings
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8123"]
+
+    # LLM Configuration
+    anthropic_api_key: str
+    llm_model: str = "claude-haiku-4-5"
 
 
 @lru_cache
