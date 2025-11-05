@@ -4,7 +4,9 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.agent.models import ChatRequest, ChatResponse
 from app.core.agents import AgentDeps, vault_agent
+from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.shared.vault.vault_manager import VaultManager
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -26,7 +28,11 @@ async def chat(request: ChatRequest) -> ChatResponse:
     logger.info("agent.chat.started", message_length=len(request.message))
 
     try:
-        result = await vault_agent.run(request.message, deps=AgentDeps())
+        settings = get_settings()
+        vault_manager = VaultManager(settings.obsidian_vault_path)
+        result = await vault_agent.run(
+            request.message, deps=AgentDeps(vault_manager=vault_manager, settings=settings)
+        )
 
         logger.info(
             "agent.chat.completed",

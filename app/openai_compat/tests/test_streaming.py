@@ -11,9 +11,7 @@ def test_builder_initialization() -> None:
 
     assert builder.model == "claude-sonnet-4-0"
     assert builder.completion_id.startswith("chatcmpl-")
-    assert (
-        len(builder.completion_id) == 38
-    )  # "chatcmpl-" (9) + 29 hex chars = 38
+    assert len(builder.completion_id) == 38  # "chatcmpl-" (9) + 29 hex chars = 38
     assert builder.created > 0
     assert builder.first_chunk_sent is False
 

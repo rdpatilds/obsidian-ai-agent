@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     llm_model: str = "claude-haiku-4-5"
 
+    # Obsidian Vault Configuration
+    obsidian_vault_path: str
+
 
 @lru_cache
 def get_settings() -> Settings:

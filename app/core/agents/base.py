@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 from pydantic_ai import Agent
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
+from app.shared.vault.vault_manager import VaultManager
 
 settings = get_settings()
 
@@ -13,11 +14,12 @@ settings = get_settings()
 class AgentDeps:
     """Dependencies for agent tools.
 
-    Currently empty but establishes dependency injection pattern.
-    Future: vault_manager, settings, etc.
+    Provides vault_manager for file operations and settings for configuration.
+    All tools receive these dependencies via RunContext.
     """
 
-    pass
+    vault_manager: VaultManager
+    settings: Settings
 
 
 vault_agent: Agent[AgentDeps, str] = Agent(
@@ -26,12 +28,24 @@ vault_agent: Agent[AgentDeps, str] = Agent(
 
 Your role is to help users query, read, and manage their Obsidian notes using natural language.
 
-Guidelines:
-- Be concise and helpful
-- Provide clear explanations
-- When you lack tools, explain what's needed
+## Available Tools
 
-Currently, you have no tools but can discuss Obsidian workflows.
+You currently have ONE tool:
+- `obsidian_query_vault_tool`: Search and discover notes (semantic search, list structure, find related, search by metadata, recent changes)
+
+## Guidelines
+
+- Use `obsidian_query_vault_tool` for ALL discovery and search operations
+- Be concise and helpful in responses
+- When searching returns many results, suggest narrowing with filters
+- Currently you can only SEARCH - you cannot read full note content or modify notes yet (those tools coming soon)
+
+## Response Format
+
+When using `obsidian_query_vault_tool`:
+- Default to `response_format="concise"` to save tokens
+- Only use `response_format="detailed"` when user needs full metadata
+- Explain what you found clearly to the user
 """,
     deps_type=AgentDeps,
     retries=2,

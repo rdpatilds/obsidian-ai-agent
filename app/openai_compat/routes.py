@@ -21,6 +21,7 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage, PartDeltaEvent, TextPartDelta
 
 from app.core.agents import AgentDeps, vault_agent
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.openai_compat.converters import convert_to_pydantic_messages
 from app.openai_compat.models import (
@@ -31,6 +32,7 @@ from app.openai_compat.models import (
     Usage,
 )
 from app.openai_compat.streaming import StreamChunkBuilder
+from app.shared.vault.vault_manager import VaultManager
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/v1", tags=["openai-compat"])
@@ -59,7 +61,13 @@ async def stream_agent_text(
         ...     print(text_delta, end="")
         Hello! How can I help you?
     """
-    async with agent.iter(user_prompt, message_history=message_history, deps=AgentDeps()) as run:
+    settings = get_settings()
+    vault_manager = VaultManager(settings.obsidian_vault_path)
+    async with agent.iter(
+        user_prompt,
+        message_history=message_history,
+        deps=AgentDeps(vault_manager=vault_manager, settings=settings),
+    ) as run:
         async for node in run:
             # Extract text from model request nodes
             if Agent.is_model_request_node(node):
@@ -118,8 +126,12 @@ async def stream_openai_response(
         completion_tokens = 0
 
         # Stream text deltas from agent
+        settings = get_settings()
+        vault_manager = VaultManager(settings.obsidian_vault_path)
         async with vault_agent.iter(
-            user_prompt, message_history=message_history, deps=AgentDeps()
+            user_prompt,
+            message_history=message_history,
+            deps=AgentDeps(vault_manager=vault_manager, settings=settings),
         ) as run:
             async for node in run:
                 if Agent.is_model_request_node(node):
@@ -241,8 +253,12 @@ async def chat_completions(
     try:
         # Convert messages and run agent
         user_prompt, message_history = convert_to_pydantic_messages(request.messages)
+        settings = get_settings()
+        vault_manager = VaultManager(settings.obsidian_vault_path)
         result = await vault_agent.run(
-            user_prompt, message_history=message_history, deps=AgentDeps()
+            user_prompt,
+            message_history=message_history,
+            deps=AgentDeps(vault_manager=vault_manager, settings=settings),
         )
 
         duration_ms = (time.time() - start_time) * 1000
