@@ -8,7 +8,7 @@ You are about to work on building or modifying agent tools that will be used by 
 
 ## Read
 
-Read the tool docstring patterns: @.agents/reference/how-to-add-tools.md
+Read the tool docstring patterns: @.agents/reference/adding_tools_guide.md
 
 ## Process
 
