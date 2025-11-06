@@ -18,7 +18,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.agent.routes import router as agent_router
-from app.core.agents import tool_registry  # noqa: F401  # Register agent tools
+from app.core.agents import tool_registry as _  # noqa: F401  # Register agent tools
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers

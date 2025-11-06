@@ -35,11 +35,9 @@ def _note_to_content(note: Note, vault_manager: VaultManager, response_format: s
             metadata_dict["created"] = note.frontmatter.created.isoformat()
         if note.frontmatter.modified:
             metadata_dict["modified"] = note.frontmatter.modified.isoformat()
-        # Add custom fields that match our type constraints
+        # Add custom fields (already type-constrained by Frontmatter model)
         for key, value in note.frontmatter.custom.items():
-            # Filter out unsupported types (pyright: this isinstance is necessary for runtime safety)
-            if isinstance(value, (str, list, int, float, bool)):
-                metadata_dict[key] = value
+            metadata_dict[key] = value
         metadata = metadata_dict
     return NoteContent(
         path=relative_path,

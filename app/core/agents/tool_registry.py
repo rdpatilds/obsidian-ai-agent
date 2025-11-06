@@ -12,15 +12,11 @@ the side-effect of tool registration, not the actual functions.
 """
 
 # Import feature tool modules for side-effect registration
-# ruff: noqa: I001 - Import order matters to avoid circular imports
-from app.features.obsidian_query_vault_tool import (  # noqa: F401
-    obsidian_query_vault_tool,
-)
-from app.features.obsidian_note_manager_tool import (  # noqa: F401
-    obsidian_note_manager_tool,
-)
-from app.features.obsidian_get_context_tool import (  # noqa: F401
-    obsidian_get_context_tool,
-)
+# Side-effect imports for tool registration - suppress linting warnings
+# ruff: noqa: F401, I001
+# pyright: reportUnusedImport=false
+import app.features.obsidian_query_vault_tool.obsidian_query_vault_tool
+import app.features.obsidian_note_manager_tool.obsidian_note_manager_tool
+import app.features.obsidian_get_context_tool.obsidian_get_context_tool
 
 __all__: list[str] = []  # No exports - side-effect only module
