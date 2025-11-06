@@ -100,7 +100,7 @@ def test_chat_completions_with_history(test_client: TestClient) -> None:
 
 def test_chat_completions_validation_error_empty_messages(test_client: TestClient) -> None:
     """Test validation error for empty messages list."""
-    request_data = {
+    request_data: dict[str, str | bool | list[dict[str, str]]] = {
         "model": "claude-sonnet-4-0",
         "messages": [],
         "stream": False,

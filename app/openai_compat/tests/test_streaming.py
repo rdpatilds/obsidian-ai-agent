@@ -53,17 +53,17 @@ def test_multiple_content_chunks() -> None:
     """Test building multiple content chunks in sequence."""
     builder = StreamChunkBuilder(model="test-model")
 
-    chunks = []
+    chunks: list[dict[str, object]] = []
     for text in ["Hello", " ", "World", "!"]:
         chunk = builder.build_content_chunk(text)
         chunks.append(chunk)
 
     # None should have role (role is only in build_role_chunk)
     for chunk in chunks:
-        assert "role" not in chunk["choices"][0]["delta"]
+        assert "role" not in chunk["choices"][0]["delta"]  # type: ignore[index]
 
     # All have content
-    contents = [c["choices"][0]["delta"]["content"] for c in chunks]
+    contents: list[object] = [c["choices"][0]["delta"]["content"] for c in chunks]  # type: ignore[index]
     assert contents == ["Hello", " ", "World", "!"]
 
 
@@ -174,7 +174,7 @@ def test_full_streaming_sequence() -> None:
     builder = StreamChunkBuilder(model="claude-sonnet-4-0")
 
     # Simulate streaming response
-    chunks = []
+    chunks: list[str] = []
 
     # Role chunk first (OpenAI SSE spec)
     role_chunk = builder.build_role_chunk()
@@ -193,16 +193,16 @@ def test_full_streaming_sequence() -> None:
     assert len(chunks) == 5  # role + 3 content + final
 
     # First chunk has role with empty content
-    first_data = json.loads(chunks[0].replace("data: ", "").strip())
-    assert first_data["choices"][0]["delta"]["role"] == "assistant"
-    assert first_data["choices"][0]["delta"]["content"] == ""
+    first_data: dict[str, object] = json.loads(chunks[0].replace("data: ", "").strip())
+    assert first_data["choices"][0]["delta"]["role"] == "assistant"  # type: ignore[index]
+    assert first_data["choices"][0]["delta"]["content"] == ""  # type: ignore[index]
 
     # Content chunks have no role
     for i in range(1, 4):
-        content_data = json.loads(chunks[i].replace("data: ", "").strip())
-        assert "role" not in content_data["choices"][0]["delta"]
+        content_data: dict[str, object] = json.loads(chunks[i].replace("data: ", "").strip())
+        assert "role" not in content_data["choices"][0]["delta"]  # type: ignore[index]
 
     # Last chunk has usage
-    last_data = json.loads(chunks[-1].replace("data: ", "").strip())
+    last_data: dict[str, object] = json.loads(chunks[-1].replace("data: ", "").strip())
     assert "usage" in last_data
-    assert last_data["usage"]["total_tokens"] == 8
+    assert last_data["usage"]["total_tokens"] == 8  # type: ignore[index]

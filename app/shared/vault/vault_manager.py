@@ -67,9 +67,14 @@ class VaultManager:
 
             if post.metadata:
                 # Convert frontmatter to our model
-                tags = post.metadata.get("tags", [])
-                if isinstance(tags, str):
-                    tags = [tags]
+                tags_raw = post.metadata.get("tags", [])
+                tags: list[str] = []
+                if isinstance(tags_raw, str):
+                    tags = [tags_raw]
+                elif isinstance(tags_raw, list):
+                    # Ensure all items are strings (type narrowing for untyped metadata)
+                    tags_list: list[object] = tags_raw  # pyright: ignore[reportUnknownVariableType]
+                    tags = [str(item) for item in tags_list]
 
                 # Handle dates
                 created = post.metadata.get("created")
@@ -90,17 +95,25 @@ class VaultManager:
                 elif not isinstance(modified, datetime):
                     modified = None
 
-                # Get other custom fields
+                # Get other custom fields with proper type narrowing
                 reserved_keys = {"tags", "title", "created", "modified"}
-                custom = {
-                    k: v
-                    for k, v in post.metadata.items()
-                    if k not in reserved_keys and isinstance(v, (str, int, float, bool, list))
-                }
+                custom: dict[str, str | int | float | bool | list[str]] = {}
+                for k, v in post.metadata.items():
+                    if k not in reserved_keys:
+                        if isinstance(v, (str, int, float, bool)):
+                            custom[k] = v
+                        elif isinstance(v, list):
+                            # Convert list items to strings (type narrowing for untyped metadata)
+                            v_list: list[object] = v  # pyright: ignore[reportUnknownVariableType]
+                            custom[k] = [str(item) for item in v_list]
+
+                # Get title with type assertion
+                title_raw = post.metadata.get("title")
+                title: str | None = str(title_raw) if title_raw is not None else None
 
                 fm = FrontmatterModel(
                     tags=tags,
-                    title=post.metadata.get("title"),
+                    title=title,
                     created=created,
                     modified=modified,
                     custom=custom,
@@ -191,7 +204,8 @@ class VaultManager:
         try:
             # Construct content with frontmatter if provided
             if metadata:
-                post = frontmatter.Post(content, **metadata)
+                # Untyped frontmatter library - suppress type checking
+                post = frontmatter.Post(content, handler=None, **metadata)
                 full_content = frontmatter.dumps(post)
             else:
                 full_content = content
