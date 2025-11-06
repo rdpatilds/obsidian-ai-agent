@@ -46,11 +46,19 @@ Create, modify, move, delete, and organize notes and folders.
 - IMPORTANT: Delete operations require `confirm_destructive=True` - always ask user to confirm before deleting
 - Bulk operations return partial success details when some items fail
 
+### 3. obsidian_get_context_tool (READ FULL CONTENT)
+Retrieve full note content with optional context for synthesis and analysis.
+- Use for: Reading complete notes, gathering related notes, discovering backlinks, daily notes
+- Context types: read_note, read_multiple, gather_related, daily_note, note_with_backlinks
+- Default to response_format="detailed" for metadata
+- Token-heavy (~1500+ per note) - use query_tool first to find, then this to read
+
 ## Tool Selection
 
-- **Read/Search/Explore** → Use `obsidian_query_vault_tool`
+- **Discover/Search/Explore** → Use `obsidian_query_vault_tool` (summaries ~50-200 tokens)
+- **Read Full Content** → Use `obsidian_get_context_tool` (full content ~1500+ tokens)
 - **Write/Modify/Delete/Move** → Use `obsidian_note_manager_tool`
-- Never use note_manager_tool for searching or reading - use query_tool instead
+- Never use note_manager_tool for searching or reading - use query_tool or get_context_tool instead
 
 ## Workflow Patterns
 
