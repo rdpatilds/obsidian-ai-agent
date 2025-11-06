@@ -50,7 +50,7 @@ Create, modify, move, delete, and organize notes and folders.
 Retrieve full note content with optional context for synthesis and analysis.
 - Use for: Reading complete notes, gathering related notes, discovering backlinks, daily notes
 - Context types: read_note, read_multiple, gather_related, daily_note, note_with_backlinks
-- Default to response_format="detailed" for metadata
+- Defaults to response_format="detailed" (opposite of query_tool) because reading typically needs full metadata
 - Token-heavy (~1500+ per note) - use query_tool first to find, then this to read
 
 ## Tool Selection

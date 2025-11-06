@@ -1,7 +1,7 @@
 """Business logic for Obsidian Get Context Tool."""
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Literal
 
 from app.core.logging import get_logger
@@ -15,10 +15,13 @@ from app.shared.vault.vault_models import Note
 
 logger = get_logger(__name__)
 
+# Rough estimate for token counting (approximately 4 characters per token)
+CHARS_PER_TOKEN_ESTIMATE = 4
+
 
 def _estimate_tokens(text: str) -> int:
-    """Rough token estimate (~4 chars per token)."""
-    return len(text) // 4
+    """Rough token estimate based on character count."""
+    return len(text) // CHARS_PER_TOKEN_ESTIMATE
 
 
 def _note_to_content(note: Note, vault_manager: VaultManager, response_format: str) -> NoteContent:
@@ -163,7 +166,7 @@ async def execute_daily_note(
     logger.info("vault.daily_note_started", date=date)
 
     if date == "today" or date is None:
-        target_date = datetime.now(tz=UTC)  # UTC for consistent daily note paths
+        target_date = datetime.now()  # noqa: DTZ005 - intentionally using local timezone for daily note matching
     else:
         target_date = datetime.fromisoformat(date)
 
