@@ -66,52 +66,6 @@ Stop the server:
 lsof -ti:8123 | xargs kill -9 2>/dev/null || true
 ```
 
-## 5. Docker Deployment Validation
-
-Build and start Docker service:
-
-```bash
-docker-compose up -d --build
-```
-
-**Expected:** Container builds successfully and starts
-
-Wait 5 seconds, then verify container status:
-
-```bash
-docker-compose ps
-```
-
-**Expected:** Container status shows "Up"
-
-Test Docker endpoints:
-
-```bash
-curl -s http://localhost:8123/ | python3 -m json.tool
-```
-
-**Expected:** Same JSON response as local server
-
-```bash
-curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8123/docs
-```
-
-**Expected:** HTTP Status: 200
-
-Check Docker logs:
-
-```bash
-docker-compose logs app | tail -20
-```
-
-**Expected:** Structured JSON logs with request_id, startup message, request logging
-
-Stop Docker service:
-
-```bash
-docker-compose down
-```
-
 ## 6. Summary Report
 
 After all validations complete, provide a summary report with:
@@ -120,7 +74,6 @@ After all validations complete, provide a summary report with:
 - Type checking status (mypy + pyright)
 - Linting status
 - Local server status
-- Docker deployment status
 - Any errors or warnings encountered
 - Overall health assessment (PASS/FAIL)
 

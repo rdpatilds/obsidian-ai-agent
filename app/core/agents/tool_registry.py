@@ -15,9 +15,11 @@ the side-effect of tool registration, not the actual functions.
 from app.features.obsidian_query_vault_tool import (  # noqa: F401
     obsidian_query_vault_tool,
 )
+from app.features.obsidian_note_manager_tool import (  # noqa: F401
+    obsidian_note_manager_tool,
+)
 
 # Future tool imports:
 # from app.features.obsidian_get_context_tool import obsidian_get_context_tool
-# from app.features.obsidian_vault_manager_tool import obsidian_vault_manager_tool
 
 __all__: list[str] = []  # No exports - side-effect only module

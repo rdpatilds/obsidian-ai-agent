@@ -1,5 +1,6 @@
 """VaultManager for Obsidian vault file operations."""
 
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -153,6 +154,122 @@ class VaultManager:
         self.logger.debug("vault.read_note_completed", path=relative_path, word_count=word_count)
 
         return note
+
+    def write_note(
+        self,
+        relative_path: str,
+        content: str,
+        metadata: dict[str, str | list[str] | int | float | bool] | None = None,
+        overwrite: bool = False,
+    ) -> Path:
+        """Write note with optional frontmatter metadata.
+
+        Creates parent directories if they don't exist.
+
+        Args:
+            relative_path: Path within vault (e.g., "Projects/note.md")
+            content: Note content without frontmatter
+            metadata: Optional frontmatter fields (tags, title, custom)
+            overwrite: If False, raise error if file exists
+
+        Returns:
+            Absolute path to written file
+
+        Raises:
+            ValueError: If path outside vault or file exists and overwrite=False
+            IOError: If write operation fails
+        """
+        abs_path = self._validate_path(relative_path)
+
+        if abs_path.exists() and not overwrite:
+            raise ValueError(
+                f"Note already exists: {relative_path}. Set overwrite=True to replace."
+            )
+
+        self.logger.info("vault.write_note_started", path=relative_path, overwrite=overwrite)
+
+        try:
+            # Construct content with frontmatter if provided
+            if metadata:
+                post = frontmatter.Post(content, **metadata)
+                full_content = frontmatter.dumps(post)
+            else:
+                full_content = content
+
+            # Create parent directories
+            abs_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write file
+            abs_path.write_text(full_content, encoding="utf-8")
+
+            self.logger.info("vault.write_note_completed", path=relative_path)
+            return abs_path
+
+        except Exception as e:
+            self.logger.error(
+                "vault.write_note_failed", path=relative_path, error=str(e), exc_info=True
+            )
+            raise
+
+    def append_to_note(self, relative_path: str, content: str) -> Path:
+        """Append content to existing note.
+
+        Args:
+            relative_path: Path to existing note
+            content: Content to append (will add newline if needed)
+
+        Returns:
+            Absolute path to updated file
+
+        Raises:
+            FileNotFoundError: If note doesn't exist
+            ValueError: If path outside vault
+        """
+        abs_path = self._validate_path(relative_path)
+
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Cannot append to non-existent note: {relative_path}")
+
+        self.logger.info("vault.append_note_started", path=relative_path)
+
+        try:
+            # Read existing note
+            note = self.read_note(relative_path)
+
+            # Append content (ensure newline before appending)
+            new_content = note.content
+            if not new_content.endswith("\n"):
+                new_content += "\n"
+            new_content += content
+
+            # Preserve existing frontmatter
+            metadata = None
+            if note.frontmatter:
+                metadata_dict: dict[str, str | list[str] | int | float | bool] = {
+                    "tags": note.frontmatter.tags,
+                }
+                if note.frontmatter.title:
+                    metadata_dict["title"] = note.frontmatter.title
+                if note.frontmatter.created:
+                    metadata_dict["created"] = note.frontmatter.created.isoformat()
+                if note.frontmatter.modified:
+                    metadata_dict["modified"] = note.frontmatter.modified.isoformat()
+                # Add custom fields
+                for key, value in note.frontmatter.custom.items():
+                    metadata_dict[key] = value
+                metadata = metadata_dict
+
+            # Write back with existing frontmatter
+            result = self.write_note(relative_path, new_content, metadata, overwrite=True)
+
+            self.logger.info("vault.append_note_completed", path=relative_path)
+            return result
+
+        except Exception as e:
+            self.logger.error(
+                "vault.append_note_failed", path=relative_path, error=str(e), exc_info=True
+            )
+            raise
 
     def search_content(self, query: str, limit: int = 10) -> list[Note]:
         """Search notes by filename, title, and content (case-insensitive hybrid search).
@@ -377,3 +494,189 @@ class VaultManager:
         self.logger.info("vault.recent_notes_completed", result_count=len(results))
 
         return results
+
+    def delete_note(self, relative_path: str) -> None:
+        """Delete a note file.
+
+        Args:
+            relative_path: Path to note to delete
+
+        Raises:
+            FileNotFoundError: If note doesn't exist
+            ValueError: If path outside vault
+        """
+        abs_path = self._validate_path(relative_path)
+
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Cannot delete non-existent note: {relative_path}")
+
+        self.logger.info("vault.delete_note_started", path=relative_path)
+
+        try:
+            abs_path.unlink()
+            self.logger.info("vault.delete_note_completed", path=relative_path)
+        except Exception as e:
+            self.logger.error(
+                "vault.delete_note_failed", path=relative_path, error=str(e), exc_info=True
+            )
+            raise
+
+    def move_note(
+        self, source_path: str, dest_path: str, create_folders: bool = True
+    ) -> Path:
+        """Move note to new location.
+
+        Args:
+            source_path: Current note path
+            dest_path: Destination path
+            create_folders: Create parent folders if missing
+
+        Returns:
+            Absolute path to new location
+
+        Raises:
+            FileNotFoundError: If source doesn't exist
+            ValueError: If paths outside vault or dest exists
+        """
+        source_abs = self._validate_path(source_path)
+        dest_abs = self._validate_path(dest_path)
+
+        if not source_abs.exists():
+            raise FileNotFoundError(f"Cannot move non-existent note: {source_path}")
+
+        if dest_abs.exists():
+            raise ValueError(f"Destination already exists: {dest_path}")
+
+        self.logger.info("vault.move_note_started", source=source_path, dest=dest_path)
+
+        try:
+            # Create parent directories if needed
+            if create_folders:
+                dest_abs.parent.mkdir(parents=True, exist_ok=True)
+
+            # Move file
+            source_abs.rename(dest_abs)
+
+            self.logger.info("vault.move_note_completed", source=source_path, dest=dest_path)
+            return dest_abs
+
+        except Exception as e:
+            self.logger.error(
+                "vault.move_note_failed",
+                source=source_path,
+                dest=dest_path,
+                error=str(e),
+                exc_info=True,
+            )
+            raise
+
+    def create_folder(self, relative_path: str, exist_ok: bool = False) -> Path:
+        """Create folder in vault.
+
+        Args:
+            relative_path: Folder path to create
+            exist_ok: If True, don't error if folder exists
+
+        Returns:
+            Absolute path to created folder
+
+        Raises:
+            ValueError: If path outside vault or exists and exist_ok=False
+        """
+        abs_path = self._validate_path(relative_path)
+
+        if abs_path.exists() and not exist_ok:
+            raise ValueError(f"Folder already exists: {relative_path}")
+
+        self.logger.info("vault.create_folder_started", path=relative_path)
+
+        try:
+            abs_path.mkdir(parents=True, exist_ok=exist_ok)
+            self.logger.info("vault.create_folder_completed", path=relative_path)
+            return abs_path
+        except Exception as e:
+            self.logger.error(
+                "vault.create_folder_failed", path=relative_path, error=str(e), exc_info=True
+            )
+            raise
+
+    def delete_folder(self, relative_path: str, recursive: bool = False) -> None:
+        """Delete folder from vault.
+
+        Args:
+            relative_path: Folder path to delete
+            recursive: If True, delete non-empty folders
+
+        Raises:
+            FileNotFoundError: If folder doesn't exist
+            ValueError: If path outside vault or folder not empty and recursive=False
+        """
+        abs_path = self._validate_path(relative_path)
+
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Cannot delete non-existent folder: {relative_path}")
+
+        if not abs_path.is_dir():
+            raise ValueError(f"Path is not a folder: {relative_path}")
+
+        # Check if folder is empty
+        if not recursive and any(abs_path.iterdir()):
+            raise ValueError(
+                f"Folder not empty: {relative_path}. Set recursive=True to delete."
+            )
+
+        self.logger.info("vault.delete_folder_started", path=relative_path, recursive=recursive)
+
+        try:
+            if recursive:
+                shutil.rmtree(abs_path)
+            else:
+                abs_path.rmdir()
+            self.logger.info("vault.delete_folder_completed", path=relative_path)
+        except Exception as e:
+            self.logger.error(
+                "vault.delete_folder_failed", path=relative_path, error=str(e), exc_info=True
+            )
+            raise
+
+    def move_folder(self, source_path: str, dest_path: str) -> Path:
+        """Move folder to new location.
+
+        Args:
+            source_path: Current folder path
+            dest_path: Destination path
+
+        Returns:
+            Absolute path to new location
+
+        Raises:
+            FileNotFoundError: If source doesn't exist
+            ValueError: If paths outside vault or dest exists
+        """
+        source_abs = self._validate_path(source_path)
+        dest_abs = self._validate_path(dest_path)
+
+        if not source_abs.exists():
+            raise FileNotFoundError(f"Cannot move non-existent folder: {source_path}")
+
+        if not source_abs.is_dir():
+            raise ValueError(f"Source is not a folder: {source_path}")
+
+        if dest_abs.exists():
+            raise ValueError(f"Destination already exists: {dest_path}")
+
+        self.logger.info("vault.move_folder_started", source=source_path, dest=dest_path)
+
+        try:
+            source_abs.rename(dest_abs)
+            self.logger.info("vault.move_folder_completed", source=source_path, dest=dest_path)
+            return dest_abs
+        except Exception as e:
+            self.logger.error(
+                "vault.move_folder_failed",
+                source=source_path,
+                dest=dest_path,
+                error=str(e),
+                exc_info=True,
+            )
+            raise
