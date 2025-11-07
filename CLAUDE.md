@@ -136,6 +136,27 @@ app/
 - Import tool modules in `main.py` for side-effect registration
 - OpenAI compatibility layer in chat routes converts formats
 
+**Tool Registry Import Order (CRITICAL):**
+
+Tool registry imports have side effects and must preserve order to avoid circular imports:
+
+```python
+# At top of tool_registry.py import block
+# ruff: noqa: I001
+
+# Import existing tools first, then new tools
+import app.features.obsidian_query_vault_tool.obsidian_query_vault_tool  # noqa: F401
+import app.features.obsidian_note_manager_tool.obsidian_note_manager_tool  # noqa: F401
+import app.features.obsidian_get_context_tool.obsidian_get_context_tool  # noqa: F401
+```
+
+**Verify import correctness:**
+```bash
+uv run python -c "from app.main import app; print('OK')"
+```
+
+If this fails with ImportError, check import order in tool_registry.py.
+
 ### Database
 
 **SQLAlchemy Setup**
@@ -298,6 +319,32 @@ async def obsidian_query_vault(operation: str, query: str) -> QueryResult:
 - Use `@pytest.mark.integration` for tests requiring real database
 - Fast unit tests preferred (<1s total execution time)
 - Test fixtures in `app/tests/conftest.py`
+
+**Integration Test Pattern for Agent Tools:**
+
+Test the service layer directly, NOT the tool registration function:
+
+```python
+# ✅ CORRECT - test service function
+from app.features.tool_name.tool_service import execute_function
+
+@pytest.mark.asyncio
+async def test_integration(test_vault_manager: VaultManager) -> None:
+    result = await execute_function(test_vault_manager, param="value")
+    assert result.field == expected
+
+# ❌ WRONG - requires RunContext setup
+from app.features.tool_name.tool import tool_function
+from pydantic_ai import RunContext
+
+async def test_integration(test_agent_deps: AgentDeps) -> None:
+    ctx = RunContext(deps=test_agent_deps, retry=0, messages=[])  # Missing model/usage!
+    result = await tool_function(ctx, param="value")
+```
+
+**Why:** Tool functions use RunContext which requires model/usage parameters not relevant for integration testing. Service functions have cleaner interfaces.
+
+**Pattern Source:** See `app/features/obsidian_query_vault_tool/tests/` for reference.
 
 **Logging Best Practices**
 

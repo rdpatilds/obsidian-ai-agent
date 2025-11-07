@@ -272,7 +272,7 @@ So that <benefit/value>
 **Tasks:**
 
 - Connect to existing routers/handlers
-- Register new components
+- Register new components ⚠️ **CRITICAL: Preserve import order for side-effect imports** (use `# ruff: noqa: I001`)
 - Update configuration files
 - Add middleware or interceptors if needed
 
@@ -284,6 +284,8 @@ So that <benefit/value>
 
 - Implement unit tests for each component
 - Create integration tests for feature workflow
+  - **Pattern:** Test service layer functions directly (NOT tool registration with RunContext)
+  - **Example:** `await service.execute_function(vault_manager, params...)`
 - Add edge case tests
 - Validate against acceptance criteria
 

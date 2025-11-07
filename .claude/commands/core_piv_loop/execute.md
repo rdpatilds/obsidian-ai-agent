@@ -41,6 +41,8 @@ For EACH task in "Step by Step Tasks":
 
 After completing implementation tasks:
 
+**Recommended Approach:** Write failing tests first for complex logic (especially path handling, type conversions). This provides faster feedback than implementing then testing.
+
 - Create all test files specified in the plan
 - Implement all test cases mentioned
 - Follow the testing approach outlined

@@ -47,7 +47,7 @@ Execution report: $2
 
 ### Step 1: Understand the Planned Approach
 
-Read the generated plan ($2) and extract:
+Read the generated plan ($1) and extract:
 
 - What features were planned?
 - What architecture was specified?
@@ -56,7 +56,7 @@ Read the generated plan ($2) and extract:
 
 ### Step 2: Understand the Actual Implementation
 
-Read the execution report ($4) and extract:
+Read the execution report ($2) and extract:
 
 - What was implemented?
 - What diverged from the plan?
@@ -107,8 +107,8 @@ Save your analysis to: `.agents/system-reviews/[feature-name]-review.md`
 
 #### Meta Information
 
-- Plan reviewed: [path to $2]
-- Execution report: [path to $4]
+- Plan reviewed: [path to $1]
+- Execution report: [path to $2]
 - Date: [current date]
 
 #### Overall Alignment Score: \_\_/10
