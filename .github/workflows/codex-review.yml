@@ -18,7 +18,7 @@ jobs:
 
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
       issues: write
 
@@ -32,26 +32,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Configure Git
-        run: |
-          git config user.name "codex-bot"
-          git config user.email "codex-bot@users.noreply.github.com"
-
-      - name: Get PR number and checkout PR branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get PR number
         run: |
           if [ "${{ github.event_name }}" == "issue_comment" ]; then
             echo "PR_NUM=${{ github.event.issue.number }}" >> $GITHUB_ENV
           else
             echo "PR_NUM=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           fi
-
-          # Get PR branch name and checkout
-          PR_NUM="${{ github.event.issue.number || github.event.pull_request.number }}"
-          BRANCH=$(gh pr view $PR_NUM --json headRefName --jq '.headRefName')
-          git fetch origin $BRANCH
-          git checkout $BRANCH
 
       - name: Fetch PR details and diff
         env:
@@ -98,18 +85,8 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: /tmp/codex_review_prompt.txt
-          sandbox: workspace-write
-
-      - name: Commit and push review file
-        if: success()
-        run: |
-          if [ -f ".agents/code-reviews/pr-${{ env.PR_NUM }}-review.md" ]; then
-            git add .agents/code-reviews/pr-${{ env.PR_NUM }}-review.md
-            git commit -m "chore: add codex code review for PR #${{ env.PR_NUM }}"
-            git push origin HEAD
-          else
-            echo "Review file not found, skipping commit"
-          fi
+          output-file: /tmp/codex_review_output.md
+          sandbox: read-only
 
       - name: Post review comment
         if: success()
@@ -119,17 +96,16 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = process.env.PR_NUM;
-            const reviewPath = `.agents/code-reviews/pr-${prNumber}-review.md`;
 
-            let reviewBody = '## Code Review by Codex\n\n';
+            let reviewBody = '';
             try {
-              if (fs.existsSync(reviewPath)) {
-                reviewBody += fs.readFileSync(reviewPath, 'utf8');
+              if (fs.existsSync('/tmp/codex_review_output.md')) {
+                reviewBody = fs.readFileSync('/tmp/codex_review_output.md', 'utf8');
               } else {
-                reviewBody += 'Review completed. Review file saved to: `' + reviewPath + '`';
+                reviewBody = '## Code Review by Codex\n\nReview completed. No output generated.';
               }
             } catch (error) {
-              reviewBody += 'Error reading review output: ' + error.message;
+              reviewBody = '## Code Review by Codex\n\nError reading review output: ' + error.message;
             }
 
             await github.rest.issues.createComment({

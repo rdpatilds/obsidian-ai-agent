@@ -78,20 +78,18 @@ For each changed or new file, analyze for:
 - Confirm type errors are legitimate
 - Validate security concerns with context
 
-### Output
+### Output Review Comment
 
-Save review to: `.agents/code-reviews/pr-$PR_NUMBER-review.md`
-
-**Format:**
+Post a structured review comment directly on the PR with the following format:
 
 ```markdown
-# Code Review: PR #$PR_NUMBER
+## Code Review: PR #$PR_NUMBER
 
 **Repository**: $REPOSITORY
 **Reviewed By**: $TRIGGERED_BY
 **Date**: [current date]
 
-## Stats
+### Stats
 
 - Files Modified: X
 - Files Added: Y
@@ -99,7 +97,7 @@ Save review to: `.agents/code-reviews/pr-$PR_NUMBER-review.md`
 - Lines Added: A
 - Lines Deleted: B
 
-## Issues Found
+### Issues Found
 
 [For each issue:]
 
@@ -111,35 +109,19 @@ Save review to: `.agents/code-reviews/pr-$PR_NUMBER-review.md`
 
 ---
 
-## Summary
+### Summary
 
 [If no issues]: ✅ Code review passed. No technical issues detected.
 [If issues found]: Found X issues (Y critical, Z high, W medium, V low). See details above.
 ```
 
-### Commit Review File
-
-After saving the review file, commit and push it to the PR branch:
-
-```bash
-git add .agents/code-reviews/pr-$PR_NUMBER-review.md
-git commit -m "chore: add code review for PR #$PR_NUMBER"
-git push origin HEAD
-```
-
-### Post Review Comment (Conditional)
-
 $IF_COMMENT_ON_PR
 
-After committing the review file, post a summary comment on the PR:
+Post this review directly as a comment on the PR:
 
 ```bash
 gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
-## Code Review Complete
-
-Review saved to: `.agents/code-reviews/pr-$PR_NUMBER-review.md`
-
-[Summary of findings - link to review file]
+[Your formatted review from above]
 EOF
 )"
 ```

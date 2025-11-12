@@ -18,7 +18,7 @@ jobs:
 
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
       issues: write
 
@@ -32,26 +32,13 @@ jobs:
           curl https://cursor.com/install -fsS | bash
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
-      - name: Configure Git
-        run: |
-          git config user.name "cursor-bot"
-          git config user.email "cursor-bot@users.noreply.github.com"
-
-      - name: Get PR number and checkout PR branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get PR number
         run: |
           if [ "${{ github.event_name }}" == "issue_comment" ]; then
             echo "PR_NUM=${{ github.event.issue.number }}" >> $GITHUB_ENV
           else
             echo "PR_NUM=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           fi
-
-          # Get PR branch name and checkout
-          PR_NUM="${{ github.event.issue.number || github.event.pull_request.number }}"
-          BRANCH=$(gh pr view $PR_NUM --json headRefName --jq '.headRefName')
-          git fetch origin $BRANCH
-          git checkout $BRANCH
 
       - name: Load instructions
         env:
