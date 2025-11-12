@@ -1,4 +1,4 @@
-name: Cursor Review (Read-Only)
+name: Cursor Review (Read Only)
 
 on:
   issue_comment:
@@ -8,7 +8,6 @@ on:
 
 jobs:
   cursor-review:
-    # Only trigger on @cursor-review command from authorized users
     if: |
       (
         github.event_name == 'issue_comment' ||
@@ -18,71 +17,49 @@ jobs:
       contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
 
     runs-on: ubuntu-latest
-
     permissions:
-      contents: read # Read-only access
-      pull-requests: write # Allow comments on PRs
-      issues: write # Allow comments on issues
-      actions: read # Read CI results
-      id-token: write # Required for OIDC authentication
+      contents: read
+      pull-requests: write
+      issues: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Full history for better context
-
-      - name: Configure Git
-        run: |
-          git config user.name "cursor-bot"
-          git config user.email "cursor-bot@users.noreply.github.com"
+          fetch-depth: 0
 
       - name: Install Cursor CLI
         run: |
           curl https://cursor.com/install -fsS | bash
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
-      - name: Load review instructions
-        id: load-instructions
+      - name: Get PR number
         run: |
-          # Get the PR number from the event
           if [ "${{ github.event_name }}" == "issue_comment" ]; then
-            PR_NUMBER="${{ github.event.issue.number }}"
+            echo "PR_NUM=${{ github.event.issue.number }}" >> $GITHUB_ENV
           else
-            PR_NUMBER="${{ github.event.pull_request.number }}"
+            echo "PR_NUM=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           fi
 
-          # Read the code review command template
-          INSTRUCTIONS=$(cat .claude/commands/validation/code-review.md)
+      - name: Load instructions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TEMPLATE=$(cat .github/workflows/prompts/code-review-github.md)
+          TEMPLATE="${TEMPLATE//\$REPOSITORY/${{ github.repository }}}"
+          TEMPLATE="${TEMPLATE//\$PR_NUMBER/$PR_NUM}"
+          TEMPLATE="${TEMPLATE//\$TRIGGERED_BY/${{ github.event.comment.user.login }}}"
+          TEMPLATE="${TEMPLATE//\$IF_COMMENT_ON_PR/}"
+          TEMPLATE="${TEMPLATE//\$ENDIF_COMMENT_ON_PR/}"
 
-          # Prepend context
-          echo "# GitHub Context" > /tmp/cursor_review_prompt.txt
-          echo "- Repository: ${{ github.repository }}" >> /tmp/cursor_review_prompt.txt
-          echo "- PR Number: ${PR_NUMBER}" >> /tmp/cursor_review_prompt.txt
-          echo "- Triggered by: ${{ github.event.comment.user.login }}" >> /tmp/cursor_review_prompt.txt
-          echo "" >> /tmp/cursor_review_prompt.txt
-          echo "# Pull Request Code Review" >> /tmp/cursor_review_prompt.txt
-          echo "" >> /tmp/cursor_review_prompt.txt
-          echo "You are reviewing a pull request in a GitHub Actions runner." >> /tmp/cursor_review_prompt.txt
-          echo "After completing the review, save your findings to:" >> /tmp/cursor_review_prompt.txt
-          echo "\`.agents/code-reviews/pr-${PR_NUMBER}-review.md\`" >> /tmp/cursor_review_prompt.txt
-          echo "" >> /tmp/cursor_review_prompt.txt
-          echo "Then post a comment on the PR with a summary of your findings." >> /tmp/cursor_review_prompt.txt
-          echo "" >> /tmp/cursor_review_prompt.txt
-          echo "---" >> /tmp/cursor_review_prompt.txt
-          echo "" >> /tmp/cursor_review_prompt.txt
-          echo "$INSTRUCTIONS" >> /tmp/cursor_review_prompt.txt
+          echo "$TEMPLATE" > /tmp/cursor_review_prompt.txt
 
       - name: Run Cursor Review
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Run cursor-agent with the review instructions and permission to post comments
-          cursor-agent -p "$(cat /tmp/cursor_review_prompt.txt)" --model gpt-5 --force
+        run: cursor-agent -p "$(cat /tmp/cursor_review_prompt.txt)" --model gpt-5 --force
 
-  unauthorized-message:
-    # Post message for unauthorized users
+  unauthorized:
     if: |
       (
         github.event_name == 'issue_comment' ||
@@ -92,20 +69,18 @@ jobs:
       !contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
 
     runs-on: ubuntu-latest
-
     permissions:
       issues: write
       pull-requests: write
 
     steps:
-      - name: Post unauthorized message
-        uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
             const comment = {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `❌ @${context.actor} - You are not authorized to trigger Cursor reviews.\n\nOnly the maintainers can trigger Cursor: Please ask a maintainer for review.`
+              body: `❌ @${context.actor} - Not authorized`
             };
 
             if (context.eventName === 'issue_comment') {

@@ -1,0 +1,212 @@
+name: Cursor Fix (Write Access)
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  cursor-fix:
+    # Only trigger on @cursor-fix or @cursor-create command from authorized users
+    if: |
+      (
+        github.event_name == 'issue_comment' ||
+        github.event_name == 'pull_request_review_comment'
+      ) &&
+      (contains(github.event.comment.body, '@cursor-fix') || contains(github.event.comment.body, '@cursor-create')) &&
+      contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Allow creating branches and editing files
+      pull-requests: write # Allow creating and updating pull requests
+      issues: write # Allow commenting on and updating issues
+      id-token: write # Required for OIDC authentication
+      actions: read # Read CI results
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better context
+
+      - name: Configure Git
+        run: |
+          git config user.name "cursor-bot"
+          git config user.email "cursor-bot@users.noreply.github.com"
+
+      - name: Install Cursor CLI
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+
+      - name: Load fix instructions
+        id: load-instructions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the issue number from the event
+          if [ "${{ github.event_name }}" == "issue_comment" ]; then
+            ISSUE_NUMBER="${{ github.event.issue.number }}"
+          else
+            ISSUE_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+
+          # Fetch issue details including labels
+          ISSUE_JSON=$(gh issue view ${ISSUE_NUMBER} --json labels,title,body)
+          LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name' | tr '\n' ' ')
+          ISSUE_TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+          ISSUE_BODY=$(echo "$ISSUE_JSON" | jq -r '.body')
+
+          echo "Issue #${ISSUE_NUMBER}: $ISSUE_TITLE"
+          echo "Labels: $LABELS"
+
+          # Determine workflow based on labels
+          if echo "$LABELS" | grep -qiE "enhancement|feature|new feature"; then
+            echo "Detected FEATURE REQUEST workflow"
+
+            # Load and process end-to-end feature workflow
+            TEMPLATE=$(cat .claude/commands/end-to-end-feature.md)
+            INSTRUCTIONS="${TEMPLATE//\$ARGUMENTS/$ISSUE_BODY}"
+
+            # Write instructions to file
+            printf '%s\n' \
+              "# GitHub Context" \
+              "- Repository: ${{ github.repository }}" \
+              "- Issue Number: ${ISSUE_NUMBER}" \
+              "- Issue Title: ${ISSUE_TITLE}" \
+              "- Triggered by: ${{ github.event.comment.user.login }}" \
+              "" \
+              "# Feature Request from Issue #${ISSUE_NUMBER}" \
+              "" \
+              "## Feature Description" \
+              "${ISSUE_BODY}" \
+              "" \
+              "## Additional Instructions" \
+              "After completing the implementation:" \
+              "1. Create a new branch named: fix/issue-${ISSUE_NUMBER}-cursor" \
+              "2. Commit all changes to this branch" \
+              "3. Push the branch to origin" \
+              "4. Create a pull request with:" \
+              "   - Body: Follow the format in .github/pull_request_template.md" \
+              "   - Include 'Closes #${ISSUE_NUMBER}' in the PR body" \
+              "5. Comment on issue #${ISSUE_NUMBER} with a link to the PR and brief summary of the implementation" \
+              "" \
+              "---" \
+              "" \
+              "${INSTRUCTIONS}" \
+              > /tmp/cursor_fix_prompt.txt
+
+          elif echo "$LABELS" | grep -qi "bug"; then
+            echo "Detected BUG workflow"
+
+            # Load and process RCA and implement-fix workflows
+            RCA_TEMPLATE=$(cat .claude/commands/github_bug_fix/rca.md)
+            RCA_INSTRUCTIONS="${RCA_TEMPLATE//\$ARGUMENTS/$ISSUE_NUMBER}"
+            FIX_TEMPLATE=$(cat .claude/commands/github_bug_fix/implement-fix.md)
+            FIX_INSTRUCTIONS="${FIX_TEMPLATE//\$ARGUMENTS/$ISSUE_NUMBER}"
+
+            # Write instructions to file
+            printf '%s\n' \
+              "# GitHub Context" \
+              "- Repository: ${{ github.repository }}" \
+              "- Issue Number: ${ISSUE_NUMBER}" \
+              "- Issue Title: ${ISSUE_TITLE}" \
+              "- Triggered by: ${{ github.event.comment.user.login }}" \
+              "" \
+              "# Bug Fix Workflow for Issue #${ISSUE_NUMBER}" \
+              "" \
+              "This is a TWO-PHASE workflow:" \
+              "" \
+              "## Phase 1: Root Cause Analysis" \
+              "" \
+              "${RCA_INSTRUCTIONS}" \
+              "" \
+              "---" \
+              "" \
+              "## Phase 2: Implement Fix" \
+              "" \
+              "${FIX_INSTRUCTIONS}" \
+              "" \
+              "## Additional Instructions" \
+              "After implementing the fix:" \
+              "1. Create a new branch named: fix/issue-${ISSUE_NUMBER}-cursor" \
+              "2. Commit all changes (including the RCA document) to this branch" \
+              "3. Push the branch to origin" \
+              "4. Create a pull request with:" \
+              "   - Body: Follow the format in .github/pull_request_template.md" \
+              "   - Include 'Fixes #${ISSUE_NUMBER}' in the PR body" \
+              "5. Comment on issue #${ISSUE_NUMBER} with a link to the PR and brief summary of the fix" \
+              > /tmp/cursor_fix_prompt.txt
+
+          else
+            echo "No specific workflow detected"
+
+            # Write instructions to file
+            printf '%s\n' \
+              "# GitHub Context" \
+              "- Repository: ${{ github.repository }}" \
+              "- Issue Number: ${ISSUE_NUMBER}" \
+              "- Triggered by: ${{ github.event.comment.user.login }}" \
+              "" \
+              "Analyze and fix this issue." \
+              "After implementing:" \
+              "1. Create a new branch named: fix/issue-${ISSUE_NUMBER}-cursor" \
+              "2. Commit changes to this branch" \
+              "3. Push to origin" \
+              "4. Create a PR (follow .github/pull_request_template.md format) referencing issue #${ISSUE_NUMBER}" \
+              "5. Comment on issue #${ISSUE_NUMBER} with a link to the PR" \
+              > /tmp/cursor_fix_prompt.txt
+          fi
+
+      - name: Run Cursor Fix
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Run cursor-agent with the fix instructions and full write permissions
+          cursor-agent -p "$(cat /tmp/cursor_fix_prompt.txt)" --model gpt-5 --force
+
+  unauthorized-message:
+    # Post message for unauthorized users
+    if: |
+      (
+        github.event_name == 'issue_comment' ||
+        github.event_name == 'pull_request_review_comment'
+      ) &&
+      (contains(github.event.comment.body, '@cursor-fix') || contains(github.event.comment.body, '@cursor-create')) &&
+      !contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Post unauthorized message
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ @${context.actor} - You are not authorized to trigger Cursor fixes.\n\nOnly maintainers can trigger Cursor: Please ask a maintainer to run the fix command.`
+            };
+
+            if (context.eventName === 'issue_comment') {
+              await github.rest.issues.createComment({
+                ...comment,
+                issue_number: context.issue.number
+              });
+            } else if (context.eventName === 'pull_request_review_comment') {
+              await github.rest.pulls.createReplyForReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                comment_id: context.payload.comment.id,
+                body: comment.body
+              });
+            }

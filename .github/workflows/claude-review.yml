@@ -1,4 +1,4 @@
-name: Claude Code Review (Read-Only)
+name: Claude Code Review (Read Only)
 
 on:
   issue_comment:
@@ -8,7 +8,6 @@ on:
 
 jobs:
   claude-review:
-    # Only trigger on @claude-review command from authorized users
     if: |
       (
         github.event_name == 'issue_comment' ||
@@ -18,73 +17,48 @@ jobs:
       contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
 
     runs-on: ubuntu-latest
-
     permissions:
-      contents: read # Read-only access
-      pull-requests: write # Allow comments on PRs
-      issues: write # Allow comments on issues
-      actions: read # Read CI results
-      id-token: write # Required for OIDC authentication
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Full history for better context
+          fetch-depth: 0
 
-      - name: Load review instructions
-        id: load-instructions
+      - name: Get PR number
         run: |
-          # Get the PR number from the event
           if [ "${{ github.event_name }}" == "issue_comment" ]; then
-            PR_NUMBER="${{ github.event.issue.number }}"
+            echo "PR_NUM=${{ github.event.issue.number }}" >> $GITHUB_ENV
           else
-            PR_NUMBER="${{ github.event.pull_request.number }}"
+            echo "PR_NUM=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           fi
 
-          # Read the code review command template
-          INSTRUCTIONS=$(cat .claude/commands/validation/code-review.md)
+      - name: Load instructions
+        id: load-instructions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TEMPLATE=$(cat .github/workflows/prompts/code-review-github.md)
+          TEMPLATE="${TEMPLATE//\$REPOSITORY/${{ github.repository }}}"
+          TEMPLATE="${TEMPLATE//\$PR_NUMBER/$PR_NUM}"
+          TEMPLATE="${TEMPLATE//\$TRIGGERED_BY/${{ github.event.comment.user.login }}}"
+          TEMPLATE="${TEMPLATE//\$IF_COMMENT_ON_PR/}"
+          TEMPLATE="${TEMPLATE//\$ENDIF_COMMENT_ON_PR/}"
 
-          # Use heredoc to preserve multiline content with context prepended
           echo "CUSTOM_INSTRUCTIONS<<EOF" >> $GITHUB_OUTPUT
-          echo "# GitHub Context" >> $GITHUB_OUTPUT
-          echo "- Repository: ${{ github.repository }}" >> $GITHUB_OUTPUT
-          echo "- PR Number: ${PR_NUMBER}" >> $GITHUB_OUTPUT
-          echo "- Triggered by: ${{ github.event.comment.user.login }}" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "# Pull Request Code Review" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "You are reviewing a pull request in a GitHub Actions runner." >> $GITHUB_OUTPUT
-          echo "After completing the review, save your findings to:" >> $GITHUB_OUTPUT
-          echo "\`.agents/code-reviews/pr-${PR_NUMBER}-review.md\`" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "Then post a comment on the PR with a summary of your findings." >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "---" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "$INSTRUCTIONS" >> $GITHUB_OUTPUT
+          echo "$TEMPLATE" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Run Claude Code Review
-        id: claude
         uses: anthropics/claude-code-action@beta
-        timeout-minutes: 15
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # Custom trigger phrase for review workflow
-          trigger_phrase: "@claude-review"
-
-          # Review-specific instructions loaded from template
           custom_instructions: ${{ steps.load-instructions.outputs.CUSTOM_INSTRUCTIONS }}
 
-          # Commented out - using default tools
-          # allowed_tools: "Read(*),Grep(*),LS(*),Glob(*),Bash(npm test*),Bash(npm run test*),Bash(npm run lint*),Bash(npm run type*),Bash(npm run check*),Bash(uv run pytest*),Bash(uv run ruff*),Bash(uv run mypy*),Bash(git log*),Bash(git diff*),Bash(git status*),Bash(git show*),Bash(cat *),Bash(head *),Bash(tail *),Bash(wc *),Bash(find * -type f),WebSearch(*),TodoWrite(*)"
-
-  unauthorized-message:
-    # Post message for unauthorized users
+  unauthorized:
     if: |
       (
         github.event_name == 'issue_comment' ||
@@ -94,20 +68,18 @@ jobs:
       !contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
 
     runs-on: ubuntu-latest
-
     permissions:
       issues: write
       pull-requests: write
 
     steps:
-      - name: Post unauthorized message
-        uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
             const comment = {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `❌ @${context.actor} - You are not authorized to trigger Claude reviews.\n\nOnly the maintainers can trigger Claude: Please ask a maintainer for review.`
+              body: `❌ @${context.actor} - Not authorized`
             };
 
             if (context.eventName === 'issue_comment') {

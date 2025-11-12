@@ -1,0 +1,239 @@
+name: Claude Code Fix (Write Access)
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  claude-fix:
+    # Only trigger on @claude-fix or @claude-create command from authorized users
+    if: |
+      (
+        github.event_name == 'issue_comment' ||
+        github.event_name == 'pull_request_review_comment'
+      ) &&
+      (contains(github.event.comment.body, '@claude-fix') || contains(github.event.comment.body, '@claude-create')) &&
+      contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Allow creating branches and editing files
+      pull-requests: write # Allow creating and updating pull requests
+      issues: write # Allow commenting on and updating issues
+      id-token: write # Required for OIDC authentication
+      actions: read # Read CI results
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better context
+
+      - name: Determine workflow type and load instructions
+        id: load-instructions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Detect which trigger phrase was used
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          if echo "$COMMENT_BODY" | grep -q "@claude-fix"; then
+            TRIGGER="@claude-fix"
+          elif echo "$COMMENT_BODY" | grep -q "@claude-create"; then
+            TRIGGER="@claude-create"
+          else
+            TRIGGER="@claude-fix"
+          fi
+          echo "TRIGGER_PHRASE=$TRIGGER" >> $GITHUB_OUTPUT
+
+          # Get the issue number from the event
+          if [ "${{ github.event_name }}" == "issue_comment" ]; then
+            ISSUE_NUMBER="${{ github.event.issue.number }}"
+          else
+            ISSUE_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+
+          # Fetch issue details including labels
+          ISSUE_JSON=$(gh issue view ${ISSUE_NUMBER} --json labels,title,body)
+          LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name' | tr '\n' ' ')
+          ISSUE_TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+          ISSUE_BODY=$(echo "$ISSUE_JSON" | jq -r '.body')
+
+          echo "Issue #${ISSUE_NUMBER}: $ISSUE_TITLE"
+          echo "Labels: $LABELS"
+
+          # Determine workflow based on labels
+          if echo "$LABELS" | grep -qiE "enhancement|feature|new feature"; then
+            echo "Detected FEATURE REQUEST workflow"
+
+            # Load and process end-to-end feature workflow
+            TEMPLATE=$(cat .claude/commands/end-to-end-feature.md)
+            INSTRUCTIONS="${TEMPLATE//\$ARGUMENTS/$ISSUE_BODY}"
+
+            # Write instructions to output
+            echo "CUSTOM_INSTRUCTIONS<<EOF" >> $GITHUB_OUTPUT
+            printf '%s\n' \
+              "# GitHub Context" \
+              "- Repository: ${{ github.repository }}" \
+              "- Issue Number: ${ISSUE_NUMBER}" \
+              "- Issue Title: ${ISSUE_TITLE}" \
+              "- Triggered by: ${{ github.event.comment.user.login }}" \
+              "" \
+              "# Feature Request from Issue #${ISSUE_NUMBER}" \
+              "" \
+              "## Feature Description" \
+              "${ISSUE_BODY}" \
+              "" \
+              "## Additional Instructions" \
+              "After completing the implementation:" \
+              "1. Create a new branch named: fix/issue-${ISSUE_NUMBER}-claude" \
+              "2. Commit all changes to this branch" \
+              "3. Push the branch to origin" \
+              "4. Create a pull request with:" \
+              "   - Title: 'Feature: ${ISSUE_TITLE}'" \
+              "   - Body: Follow the format in .github/pull_request_template.md" \
+              "   - Include 'Closes #${ISSUE_NUMBER}' in the PR body to auto-close the issue" \
+              "5. Comment on issue #${ISSUE_NUMBER} with a link to the PR and brief summary of the implementation" \
+              "" \
+              "---" \
+              "" \
+              "${INSTRUCTIONS}" \
+              >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+
+          elif echo "$LABELS" | grep -qi "bug"; then
+            echo "Detected BUG workflow"
+
+            # Load and process RCA and implement-fix workflows
+            RCA_TEMPLATE=$(cat .claude/commands/github_bug_fix/rca.md)
+            RCA_INSTRUCTIONS="${RCA_TEMPLATE//\$ARGUMENTS/$ISSUE_NUMBER}"
+            FIX_TEMPLATE=$(cat .claude/commands/github_bug_fix/implement-fix.md)
+            FIX_INSTRUCTIONS="${FIX_TEMPLATE//\$ARGUMENTS/$ISSUE_NUMBER}"
+
+            # Write instructions to output
+            echo "CUSTOM_INSTRUCTIONS<<EOF" >> $GITHUB_OUTPUT
+            printf '%s\n' \
+              "# GitHub Context" \
+              "- Repository: ${{ github.repository }}" \
+              "- Issue Number: ${ISSUE_NUMBER}" \
+              "- Issue Title: ${ISSUE_TITLE}" \
+              "- Triggered by: ${{ github.event.comment.user.login }}" \
+              "" \
+              "# Bug Fix Workflow for Issue #${ISSUE_NUMBER}" \
+              "" \
+              "This is a TWO-PHASE workflow:" \
+              "" \
+              "## Phase 1: Root Cause Analysis" \
+              "" \
+              "${RCA_INSTRUCTIONS}" \
+              "" \
+              "---" \
+              "" \
+              "## Phase 2: Implement Fix" \
+              "" \
+              "After completing the RCA document, proceed to implement the fix:" \
+              "" \
+              "${FIX_INSTRUCTIONS}" \
+              "" \
+              "## Additional Instructions for GitHub Actions" \
+              "After implementing and validating the fix:" \
+              "1. Create a new branch named: fix/issue-${ISSUE_NUMBER}-claude" \
+              "2. Commit all changes (including the RCA document) to this branch" \
+              "3. Push the branch to origin" \
+              "4. Create a pull request with:" \
+              "   - Title: 'Fix: ${ISSUE_TITLE}'" \
+              "   - Body: Follow the format in .github/pull_request_template.md" \
+              "   - Include 'Fixes #${ISSUE_NUMBER}' in the PR body to auto-close the issue" \
+              "5. Comment on issue #${ISSUE_NUMBER} with a link to the PR and brief summary of the fix" \
+              >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+
+          else
+            echo "No specific workflow detected, using generic fix workflow"
+
+            # Write instructions to output
+            echo "CUSTOM_INSTRUCTIONS<<EOF" >> $GITHUB_OUTPUT
+            printf '%s\n' \
+              "# GitHub Context" \
+              "- Repository: ${{ github.repository }}" \
+              "- Issue Number: ${ISSUE_NUMBER}" \
+              "- Issue Title: ${ISSUE_TITLE}" \
+              "- Triggered by: ${{ github.event.comment.user.login }}" \
+              "" \
+              "# Issue Details" \
+              "" \
+              "${ISSUE_BODY}" \
+              "" \
+              "## Instructions" \
+              "Analyze the issue and implement a fix." \
+              "After implementing:" \
+              "1. Create a new branch named: fix/issue-${ISSUE_NUMBER}-claude" \
+              "2. Commit all changes to this branch" \
+              "3. Push the branch to origin" \
+              "4. Create a pull request (follow .github/pull_request_template.md format) referencing issue #${ISSUE_NUMBER}" \
+              "5. Comment on issue #${ISSUE_NUMBER} with a link to the PR" \
+              >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Claude Code Fix
+        id: claude
+        uses: anthropics/claude-code-action@beta
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Dynamic trigger phrase based on what was used in the comment
+          trigger_phrase: ${{ steps.load-instructions.outputs.TRIGGER_PHRASE }}
+
+          # Fix-specific instructions loaded from template
+          custom_instructions: ${{ steps.load-instructions.outputs.CUSTOM_INSTRUCTIONS }}
+
+          # Commented out - using default tools
+          # allowed_tools: "Edit(*),MultiEdit(*),Write(*),Read(*),Grep(*),LS(*),Glob(*),TodoWrite(*),NotebookEdit(*),Bash(git *),Bash(npm *),Bash(uv *),Bash(python *),Bash(pip *),Bash(cd *),Bash(pwd),Bash(ls *),Bash(cat *),Bash(head *),Bash(tail *),Bash(wc *),Bash(find *),Bash(grep *),Bash(rg *),Bash(sed *),Bash(awk *),Bash(curl *),Bash(wget *),Bash(echo *),Bash(mkdir *),Bash(rm -rf node_modules),Bash(rm -rf __pycache__),Bash(rm -rf .pytest_cache),WebSearch(*),WebFetch(*)"
+
+  unauthorized-message:
+    # Post message for unauthorized users
+    if: |
+      (
+        github.event_name == 'issue_comment' ||
+        github.event_name == 'pull_request_review_comment'
+      ) &&
+      (contains(github.event.comment.body, '@claude-fix') || contains(github.event.comment.body, '@claude-create')) &&
+      !contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Post unauthorized message
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ @${context.actor} - You are not authorized to trigger Claude fixes.\n\nOnly maintainers can trigger Claude: Please ask a maintainer to run the fix command.`
+            };
+
+            if (context.eventName === 'issue_comment') {
+              await github.rest.issues.createComment({
+                ...comment,
+                issue_number: context.issue.number
+              });
+            } else if (context.eventName === 'pull_request_review_comment') {
+              await github.rest.pulls.createReplyForReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                comment_id: context.payload.comment.id,
+                body: comment.body
+              });
+            }
