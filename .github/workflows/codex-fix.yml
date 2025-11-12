@@ -8,13 +8,13 @@ on:
 
 jobs:
   codex-fix:
-    # Only trigger on @codex-fix or @codex-create command from authorized users
+    # Only trigger on @codex-fix command from authorized users
     if: |
       (
         github.event_name == 'issue_comment' ||
         github.event_name == 'pull_request_review_comment'
       ) &&
-      (contains(github.event.comment.body, '@codex-fix') || contains(github.event.comment.body, '@codex-create')) &&
+      contains(github.event.comment.body, '@codex-fix') &&
       contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
 
     runs-on: ubuntu-latest
@@ -51,13 +51,6 @@ jobs:
             echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           fi
 
-      - name: Create branch for implementation
-        run: |
-          # Create and checkout new branch
-          BRANCH_NAME="fix/issue-${{ env.number }}-codex"
-          git checkout -b ${BRANCH_NAME}
-          echo "Created and checked out branch: ${BRANCH_NAME}"
-
       - name: Fetch issue/PR details
         id: fetch-details
         env:
@@ -72,118 +65,24 @@ jobs:
 
       - name: Prepare fix instructions
         run: |
+          # Read the template and replace placeholders
+          INSTRUCTIONS=$(cat .github/issue_fix_prompt.md | sed 's/{AI_ASSISTANT}/codex/g')
+
           # Read issue/PR details
           ISSUE_DETAILS=$(cat /tmp/issue-details.json)
-          ISSUE_TITLE=$(echo "$ISSUE_DETAILS" | jq -r '.title')
-          ISSUE_BODY=$(echo "$ISSUE_DETAILS" | jq -r '.body')
 
-          # Get labels from issue
-          LABELS=$(gh issue view ${{ env.number }} --json labels --jq '.labels[].name' | tr '\n' ' ')
-
-          echo "Issue #${{ env.number }}: $ISSUE_TITLE"
-          echo "Labels: $LABELS"
-
-          # Determine workflow based on labels
-          if echo "$LABELS" | grep -qiE "enhancement|feature|new feature"; then
-            echo "Detected FEATURE REQUEST workflow"
-
-            # Load and process end-to-end feature workflow
-            TEMPLATE=$(cat .claude/commands/end-to-end-feature.md)
-            INSTRUCTIONS="${TEMPLATE//\$ARGUMENTS/$ISSUE_BODY}"
-
-            # Write instructions to file
-            printf '%s\n' \
-              "# GitHub Context" \
-              "- Repository: ${{ github.repository }}" \
-              "- Issue Number: ${{ env.number }}" \
-              "- Issue Title: $ISSUE_TITLE" \
-              "- Triggered by: ${{ github.event.comment.user.login }}" \
-              "" \
-              "# Feature Request from Issue #${{ env.number }}" \
-              "" \
-              "## Feature Description" \
-              "${ISSUE_BODY}" \
-              "" \
-              "## Additional Instructions" \
-              "You are already on branch: fix/issue-${{ env.number }}-codex" \
-              "" \
-              "After completing the implementation:" \
-              "1. Commit all changes to the current branch with a descriptive commit message" \
-              "2. Push the branch to origin" \
-              "" \
-              "Note: The GitHub Actions workflow will automatically create a pull request and comment on the issue." \
-              "" \
-              "---" \
-              "" \
-              "${INSTRUCTIONS}" \
-              > /tmp/codex-fix-prompt.md
-
-          elif echo "$LABELS" | grep -qi "bug"; then
-            echo "Detected BUG workflow"
-
-            # Load and process RCA and implement-fix workflows
-            RCA_TEMPLATE=$(cat .claude/commands/github_bug_fix/rca.md)
-            RCA_INSTRUCTIONS="${RCA_TEMPLATE//\$ARGUMENTS/${{ env.number }}}"
-            FIX_TEMPLATE=$(cat .claude/commands/github_bug_fix/implement-fix.md)
-            FIX_INSTRUCTIONS="${FIX_TEMPLATE//\$ARGUMENTS/${{ env.number }}}"
-
-            # Write instructions to file
-            printf '%s\n' \
-              "# GitHub Context" \
-              "- Repository: ${{ github.repository }}" \
-              "- Issue Number: ${{ env.number }}" \
-              "- Issue Title: $ISSUE_TITLE" \
-              "- Triggered by: ${{ github.event.comment.user.login }}" \
-              "" \
-              "# Bug Fix Workflow for Issue #${{ env.number }}" \
-              "" \
-              "This is a TWO-PHASE workflow:" \
-              "" \
-              "## Phase 1: Root Cause Analysis" \
-              "" \
-              "${RCA_INSTRUCTIONS}" \
-              "" \
-              "---" \
-              "" \
-              "## Phase 2: Implement Fix" \
-              "" \
-              "${FIX_INSTRUCTIONS}" \
-              "" \
-              "## Additional Instructions" \
-              "You are already on branch: fix/issue-${{ env.number }}-codex" \
-              "" \
-              "After implementing the fix:" \
-              "1. Commit all changes (including the RCA document) to the current branch with a descriptive commit message" \
-              "2. Push the branch to origin" \
-              "" \
-              "Note: The GitHub Actions workflow will automatically create a pull request and comment on the issue." \
-              > /tmp/codex-fix-prompt.md
-
-          else
-            echo "No specific workflow detected"
-
-            # Write instructions to file
-            printf '%s\n' \
-              "# GitHub Context" \
-              "- Repository: ${{ github.repository }}" \
-              "- Issue Number: ${{ env.number }}" \
-              "- Triggered by: ${{ github.event.comment.user.login }}" \
-              "" \
-              "## Issue Details" \
-              "\`\`\`json" \
-              "${ISSUE_DETAILS}" \
-              "\`\`\`" \
-              "" \
-              "You are already on branch: fix/issue-${{ env.number }}-codex" \
-              "" \
-              "Analyze and fix this issue." \
-              "After implementing:" \
-              "1. Commit changes to the current branch with a descriptive commit message" \
-              "2. Push to origin" \
-              "" \
-              "Note: The GitHub Actions workflow will automatically create a pull request and comment on the issue." \
-              > /tmp/codex-fix-prompt.md
-          fi
+          # Prepend context with full issue details
+          echo "# GitHub Context" > /tmp/codex-fix-prompt.md
+          echo "- Repository: ${{ github.repository }}" >> /tmp/codex-fix-prompt.md
+          echo "- Issue/PR Number: ${{ env.number }}" >> /tmp/codex-fix-prompt.md
+          echo "- Triggered by: ${{ github.event.comment.user.login }}" >> /tmp/codex-fix-prompt.md
+          echo "" >> /tmp/codex-fix-prompt.md
+          echo "## Issue/PR Details" >> /tmp/codex-fix-prompt.md
+          echo '```json' >> /tmp/codex-fix-prompt.md
+          echo "$ISSUE_DETAILS" >> /tmp/codex-fix-prompt.md
+          echo '```' >> /tmp/codex-fix-prompt.md
+          echo "" >> /tmp/codex-fix-prompt.md
+          echo "$INSTRUCTIONS" >> /tmp/codex-fix-prompt.md
 
       - name: Run Codex Fix
         id: codex
@@ -253,7 +152,7 @@ jobs:
         github.event_name == 'issue_comment' ||
         github.event_name == 'pull_request_review_comment'
       ) &&
-      (contains(github.event.comment.body, '@codex-fix') || contains(github.event.comment.body, '@codex-create')) &&
+      contains(github.event.comment.body, '@codex-fix') &&
       !contains(fromJSON('["coleam00"]'), github.event.comment.user.login)
 
     runs-on: ubuntu-latest

@@ -64,24 +64,28 @@ jobs:
 
       - name: Prepare review instructions
         run: |
-          # Read the code review command template
-          INSTRUCTIONS=$(cat .claude/commands/validation/code-review.md)
+          # Read the review template
+          INSTRUCTIONS=$(cat .github/pr_review_prompt.md)
 
-          # Prepend context
+          # Read PR details
+          PR_DETAILS=$(cat /tmp/pr-details.json)
+          PR_DIFF=$(cat /tmp/pr-diff.txt)
+
+          # Prepend context with full PR details and diff
           echo "# GitHub Context" > /tmp/codex-review-prompt.md
           echo "- Repository: ${{ github.repository }}" >> /tmp/codex-review-prompt.md
           echo "- PR Number: ${{ env.number }}" >> /tmp/codex-review-prompt.md
           echo "- Triggered by: ${{ github.event.comment.user.login }}" >> /tmp/codex-review-prompt.md
           echo "" >> /tmp/codex-review-prompt.md
-          echo "# Pull Request Code Review" >> /tmp/codex-review-prompt.md
+          echo "## Pull Request Details" >> /tmp/codex-review-prompt.md
+          echo '```json' >> /tmp/codex-review-prompt.md
+          echo "$PR_DETAILS" >> /tmp/codex-review-prompt.md
+          echo '```' >> /tmp/codex-review-prompt.md
           echo "" >> /tmp/codex-review-prompt.md
-          echo "You are reviewing a pull request in a GitHub Actions runner." >> /tmp/codex-review-prompt.md
-          echo "After completing the review, save your findings to:" >> /tmp/codex-review-prompt.md
-          echo "\`.agents/code-reviews/pr-${{ env.number }}-review.md\`" >> /tmp/codex-review-prompt.md
-          echo "" >> /tmp/codex-review-prompt.md
-          echo "Then post a comment on the PR with a summary of your findings." >> /tmp/codex-review-prompt.md
-          echo "" >> /tmp/codex-review-prompt.md
-          echo "---" >> /tmp/codex-review-prompt.md
+          echo "## Pull Request Diff" >> /tmp/codex-review-prompt.md
+          echo '```diff' >> /tmp/codex-review-prompt.md
+          echo "$PR_DIFF" >> /tmp/codex-review-prompt.md
+          echo '```' >> /tmp/codex-review-prompt.md
           echo "" >> /tmp/codex-review-prompt.md
           echo "$INSTRUCTIONS" >> /tmp/codex-review-prompt.md
 
