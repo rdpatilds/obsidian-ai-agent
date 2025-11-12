@@ -54,7 +54,7 @@ jobs:
           echo "Labels: $LABELS"
 
           # Determine workflow based on labels
-          if echo "$LABELS" | grep -qi "feature"; then
+          if echo "$LABELS" | grep -qiE "enhancement|feature|new feature"; then
             echo "Detected FEATURE REQUEST workflow"
 
             # Load and process end-to-end feature workflow
