@@ -93,6 +93,20 @@ jobs:
           output-file: codex-output.md
           sandbox: workspace-write
 
+      - name: Commit changes
+        run: |
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            ISSUE_JSON=$(gh issue view $ISSUE_NUM --json title --jq '.title')
+            git commit -m "feat: $ISSUE_JSON
+
+Automated fix by Codex for issue #$ISSUE_NUM"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Push branch
         run: git push origin $BRANCH_NAME
 
