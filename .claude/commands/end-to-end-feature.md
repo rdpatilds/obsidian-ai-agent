@@ -15,7 +15,7 @@ This command chains the 4 core commands for autonomous feature development.
 
 Execute the priming workflow to understand the codebase:
 
-core_commands/prime.md
+core_piv_loop/prime.md
 
 ---
 
@@ -25,7 +25,7 @@ Create a detailed implementation plan for the feature.
 
 Execute the planning workflow with the feature description: **$ARGUMENTS**
 
-core_commands/planning.md
+core_piv_loop/plan-feature.md
 
 Replace `ARGUMENTS` in the planning command with: **$ARGUMENTS**
 
@@ -41,7 +41,7 @@ Execute the implementation workflow with the plan file path: `plans/[feature-nam
 
 (Use the feature name from Step 2)
 
-core_commands/execute.md
+core_piv_loop/execute.md
 
 Replace `ARGUMENTS` in the execute command with: `plans/[feature-name].md`
 
@@ -51,7 +51,7 @@ Replace `ARGUMENTS` in the execute command with: `plans/[feature-name].md`
 
 Create a git commit for all changes:
 
-core_commands/commit.md
+commit.md
 
 ---
 
