@@ -64,9 +64,11 @@ jobs:
           TEMPLATE="${TEMPLATE//\$COMMENT_ON_ISSUE/true}"
           TEMPLATE="${TEMPLATE//\$PLAN_PATH/}"
 
-          echo "CUSTOM_INSTRUCTIONS<<EOF" >> $GITHUB_OUTPUT
+          # Use unique delimiter to avoid escaping issues
+          DELIMITER="INSTRUCTIONS_$(date +%s)_EOF"
+          echo "CUSTOM_INSTRUCTIONS<<${DELIMITER}" >> $GITHUB_OUTPUT
           echo "$TEMPLATE" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "${DELIMITER}" >> $GITHUB_OUTPUT
 
       - name: Run Claude Code
         uses: anthropics/claude-code-action@beta
