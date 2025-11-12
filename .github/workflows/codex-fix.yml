@@ -99,10 +99,10 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            ISSUE_JSON=$(gh issue view $ISSUE_NUM --json title --jq '.title')
-            git commit -m "feat: $ISSUE_JSON
+            ISSUE_TITLE=$(gh issue view $ISSUE_NUM --json title --jq '.title')
+            git commit -m "feat: ${ISSUE_TITLE}
 
-Automated fix by Codex for issue #$ISSUE_NUM"
+Automated fix by Codex for issue #${ISSUE_NUM}"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
