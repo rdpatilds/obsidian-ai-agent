@@ -117,11 +117,21 @@ Save review to: `.agents/code-reviews/pr-$PR_NUMBER-review.md`
 [If issues found]: Found X issues (Y critical, Z high, W medium, V low). See details above.
 ```
 
+### Commit Review File
+
+After saving the review file, commit and push it to the PR branch:
+
+```bash
+git add .agents/code-reviews/pr-$PR_NUMBER-review.md
+git commit -m "chore: add code review for PR #$PR_NUMBER"
+git push origin HEAD
+```
+
 ### Post Review Comment (Conditional)
 
 $IF_COMMENT_ON_PR
 
-After saving the review file, post a summary comment on the PR:
+After committing the review file, post a summary comment on the PR:
 
 ```bash
 gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
