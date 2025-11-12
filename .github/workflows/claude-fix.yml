@@ -37,6 +37,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Detect which trigger phrase was used
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          if echo "$COMMENT_BODY" | grep -q "@claude-fix"; then
+            TRIGGER="@claude-fix"
+          elif echo "$COMMENT_BODY" | grep -q "@claude-create"; then
+            TRIGGER="@claude-create"
+          else
+            TRIGGER="@claude-fix"
+          fi
+          echo "TRIGGER_PHRASE=$TRIGGER" >> $GITHUB_OUTPUT
+
           # Get the issue number from the event
           if [ "${{ github.event_name }}" == "issue_comment" ]; then
             ISSUE_NUMBER="${{ github.event.issue.number }}"
@@ -176,8 +187,8 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # Custom trigger phrase for fix workflow (accepts both @claude-fix and @claude-create)
-          trigger_phrase: "@claude-fix|@claude-create"
+          # Dynamic trigger phrase based on what was used in the comment
+          trigger_phrase: ${{ steps.load-instructions.outputs.TRIGGER_PHRASE }}
 
           # Fix-specific instructions loaded from template
           custom_instructions: ${{ steps.load-instructions.outputs.CUSTOM_INSTRUCTIONS }}
