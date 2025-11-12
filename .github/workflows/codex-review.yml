@@ -79,10 +79,14 @@ jobs:
           echo "$TEMPLATE" >> /tmp/codex_review_prompt.txt
 
       - name: Run Codex Review
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          npx openai-codex -p "$(cat /tmp/codex_review_prompt.txt)" > /tmp/codex_review_output.md
+        id: codex
+        uses: openai/codex-action@v1
+        timeout-minutes: 15
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: /tmp/codex_review_prompt.txt
+          output-file: /tmp/codex_review_output.md
+          sandbox: workspace-read
 
       - name: Post review comment
         if: success()
