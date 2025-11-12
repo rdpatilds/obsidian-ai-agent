@@ -68,7 +68,7 @@ jobs:
             echo "Detected FEATURE REQUEST workflow"
 
             # Load and process end-to-end feature workflow
-            INSTRUCTIONS=$(cat .claude/commands/end-to-end-feature.md | sed "s/\$ARGUMENTS/${ISSUE_BODY}/g")
+            INSTRUCTIONS=$(cat .claude/commands/end-to-end-feature.md | sed "s|\$ARGUMENTS|${ISSUE_BODY}|g")
 
             # Write instructions to file
             printf '%s\n' \
@@ -102,8 +102,8 @@ jobs:
             echo "Detected BUG workflow"
 
             # Load and process RCA and implement-fix workflows
-            RCA_INSTRUCTIONS=$(cat .claude/commands/github_bug_fix/rca.md | sed "s/\$ARGUMENTS/${ISSUE_NUMBER}/g")
-            FIX_INSTRUCTIONS=$(cat .claude/commands/github_bug_fix/implement-fix.md | sed "s/\$ARGUMENTS/${ISSUE_NUMBER}/g")
+            RCA_INSTRUCTIONS=$(cat .claude/commands/github_bug_fix/rca.md | sed "s|\$ARGUMENTS|${ISSUE_NUMBER}|g")
+            FIX_INSTRUCTIONS=$(cat .claude/commands/github_bug_fix/implement-fix.md | sed "s|\$ARGUMENTS|${ISSUE_NUMBER}|g")
 
             # Write instructions to file
             printf '%s\n' \
