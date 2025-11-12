@@ -49,14 +49,30 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ISSUE_JSON=$(gh issue view $ISSUE_NUM --json title,body)
+          ISSUE_JSON=$(gh issue view $ISSUE_NUM --json labels,title,body)
+          LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name' | tr '\n' ' ')
           TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
           BODY=$(echo "$ISSUE_JSON" | jq -r '.body')
 
-          TEMPLATE=$(cat .github/workflows/prompts/codex-simple-fix.md)
+          if echo "$LABELS" | grep -qiE "enhancement|feature|new feature"; then
+            TEMPLATE_FILE=".github/workflows/prompts/end-to-end-feature-github.md"
+          elif echo "$LABELS" | grep -qi "bug"; then
+            TEMPLATE_FILE=".github/workflows/prompts/bug-fix-github.md"
+          else
+            TEMPLATE_FILE=".github/workflows/prompts/bug-fix-github.md"
+          fi
+
+          TEMPLATE=$(cat $TEMPLATE_FILE)
+          TEMPLATE="${TEMPLATE//\$REPOSITORY/${{ github.repository }}}"
           TEMPLATE="${TEMPLATE//\$ISSUE_NUMBER/$ISSUE_NUM}"
           TEMPLATE="${TEMPLATE//\$ISSUE_TITLE/$TITLE}"
           TEMPLATE="${TEMPLATE//\$ISSUE_BODY/$BODY}"
+          TEMPLATE="${TEMPLATE//\$TRIGGERED_BY/${{ github.event.comment.user.login }}}"
+          TEMPLATE="${TEMPLATE//\$BRANCH_NAME/fix/issue-$ISSUE_NUM-codex}"
+          TEMPLATE="${TEMPLATE//\$CREATE_BRANCH/false}"
+          TEMPLATE="${TEMPLATE//\$CREATE_PR/false}"
+          TEMPLATE="${TEMPLATE//\$COMMENT_ON_ISSUE/false}"
+          TEMPLATE="${TEMPLATE//\$PLAN_PATH/}"
 
           echo "$TEMPLATE" > /tmp/codex_prompt.txt
 
