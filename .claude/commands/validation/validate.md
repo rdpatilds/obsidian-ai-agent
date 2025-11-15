@@ -2,7 +2,24 @@ Run comprehensive validation of the project to ensure all tests, type checks, li
 
 Execute the following commands in sequence and report results:
 
-## 1. Test Suite
+## 1. Import Validation
+
+Verify all Python imports can be resolved:
+
+```bash
+uv run python -c "from app.main import app; print('✓ All imports valid')"
+```
+
+**Expected:** "✓ All imports valid" without ModuleNotFoundError or ImportError
+
+**Why:** Catches incorrect package imports (wrong module names, missing dependencies) before running expensive test suites. This prevents issues like using `from brave_search_client import ...` when the actual package is `brave_search_python_client`.
+
+If this fails:
+- Check `pyproject.toml` dependencies are installed
+- Verify import names match actual package module names (not PyPI package names)
+- Run `uv sync` to ensure dependencies are up to date
+
+## 2. Test Suite
 
 ```bash
 uv run pytest -v
@@ -10,7 +27,7 @@ uv run pytest -v
 
 **Expected:** All tests pass (currently 34 tests), execution time < 1 second
 
-## 2. Type Checking
+## 3. Type Checking
 
 ```bash
 uv run mypy app/
@@ -24,7 +41,7 @@ uv run pyright app/
 
 **Expected:** "0 errors, 0 warnings, 0 informations"
 
-## 3. Linting
+## 4. Linting
 
 ```bash
 uv run ruff check .
@@ -32,7 +49,7 @@ uv run ruff check .
 
 **Expected:** "All checks passed!"
 
-## 4. Local Server Validation
+## 5. Local Server Validation
 
 Start the server in background:
 
@@ -70,6 +87,7 @@ lsof -ti:8123 | xargs kill -9 2>/dev/null || true
 
 After all validations complete, provide a summary report with:
 
+- Import validation status
 - Total tests passed/failed
 - Type checking status (mypy + pyright)
 - Linting status
