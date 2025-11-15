@@ -18,5 +18,6 @@ the side-effect of tool registration, not the actual functions.
 import app.features.obsidian_query_vault_tool.obsidian_query_vault_tool
 import app.features.obsidian_note_manager_tool.obsidian_note_manager_tool
 import app.features.obsidian_get_context_tool.obsidian_get_context_tool
+import app.features.brave_web_search_tool.brave_web_search_tool
 
 __all__: list[str] = []  # No exports - side-effect only module
