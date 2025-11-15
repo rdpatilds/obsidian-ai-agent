@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     llm_model: str = "claude-haiku-4-5"
 
+    # Brave Search API Configuration
+    brave_api_key: str
+
     # Obsidian Vault Configuration
     obsidian_vault_path: str
 
