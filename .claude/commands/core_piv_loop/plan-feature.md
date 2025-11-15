@@ -144,6 +144,57 @@ Report: research-report-streaming.md
   - Why: Shows how to connect components
 ```
 
+**External Package API Verification (CRITICAL for new dependencies):**
+
+When the feature requires adding a new external Python package:
+
+1. **Verify Package Name vs Import Name**
+   - PyPI package name often differs from Python import name
+   - Example: `brave-search-python-client` (package) → `brave_search_python_client` (import)
+   - NEVER assume they're identical - always verify
+
+2. **Test Actual API Before Planning**
+   ```bash
+   # Install package
+   uv add <package-name>
+
+   # Test import and inspect API
+   uv run python -c "from package_name import ClassName; help(ClassName)" | head -50
+   ```
+
+3. **Document Verified API in Plan**
+   - Correct import statements with actual class/function names
+   - Actual method signatures (sync vs async, parameters)
+   - Required request/response objects
+   - Include code examples from package documentation
+
+4. **Common API Verification Mistakes to Avoid**
+   - ❌ Assuming class name from package name (e.g., `BraveSearchClient` vs actual `BraveSearch`)
+   - ❌ Guessing method names (e.g., `.search()` vs actual `.web()`)
+   - ❌ Missing required request objects (e.g., `WebSearchRequest`)
+   - ❌ Wrong sync/async usage (e.g., sync when package is async-only)
+
+**Example Research Entry with API Verification:**
+```markdown
+### brave-search-python-client API
+
+**Verified Import & API:**
+```python
+# ✓ Verified via: uv run python -c "from brave_search_python_client import BraveSearch; help(BraveSearch.web)"
+from brave_search_python_client import BraveSearch, WebSearchRequest
+
+# Class: BraveSearch (NOT BraveSearchClient)
+# Method: async web(request: WebSearchRequest) - NOT search()
+# Requires: WebSearchRequest object (NOT direct parameters)
+```
+
+**Documentation:**
+- [Official API Docs](https://brave-search-python-client.readthedocs.io/)
+- [GitHub Examples](https://github.com/helmut-hoffer-von-ankershoffen/brave-search-python-client/tree/main/examples)
+
+**Why This Matters:** Prevents ModuleNotFoundError and AttributeError during implementation.
+```
+
 ### Phase 4: Deep Strategic Thinking
 
 **Think Harder About:**
@@ -344,23 +395,35 @@ Design unit tests with fixtures and assertions following existing testing approa
 
 Execute every command to ensure zero regressions and 100% feature correctness.
 
-### Level 1: Syntax & Style
+### Level 1: Import Validation (CRITICAL)
+
+**Verify all imports resolve before running tests:**
+
+```bash
+uv run python -c "from app.main import app; print('✓ All imports valid')"
+```
+
+**Expected:** "✓ All imports valid" (no ModuleNotFoundError or ImportError)
+
+**Why:** Catches incorrect package imports immediately. If this fails, fix imports before proceeding.
+
+### Level 2: Syntax & Style
 
 <Project-specific linting and formatting commands>
 
-### Level 2: Unit Tests
+### Level 3: Unit Tests
 
 <Project-specific unit test commands>
 
-### Level 3: Integration Tests
+### Level 4: Integration Tests
 
 <Project-specific integration test commands>
 
-### Level 4: Manual Validation
+### Level 5: Manual Validation
 
 <Feature-specific manual testing steps - API calls, UI testing, etc.>
 
-### Level 5: Additional Validation (Optional)
+### Level 6: Additional Validation (Optional)
 
 <MCP servers or additional CLI tools if available>
 
