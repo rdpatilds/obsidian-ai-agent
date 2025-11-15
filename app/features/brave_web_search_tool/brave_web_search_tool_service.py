@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from brave_search_client import BraveSearchClient  # type: ignore[import-untyped]
+from brave_search_python_client import BraveSearch, WebSearchRequest  # type: ignore[import-untyped]
 
 from app.core.config import Settings
 from app.core.logging import get_logger
@@ -52,12 +52,12 @@ async def execute_web_search(
 
     try:
         # Initialize Brave Search client
-        client = BraveSearchClient(api_key=settings.brave_api_key)
+        client = BraveSearch(api_key=settings.brave_api_key)
 
-        # Execute search - the client supports both sync and async
-        # For consistency with our async architecture, we'll use it synchronously
-        # but in an async function context
-        response = client.search(q=query, count=count, safesearch=safesearch)
+        # Execute search using async API
+        response = await client.web(
+            WebSearchRequest(q=query, count=count, safesearch=safesearch)
+        )
 
         # Parse results
         results: list[SearchResult] = []
