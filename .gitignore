@@ -12,6 +12,9 @@ wheels/
 # Environment variables (secrets)
 .env
 
+# Test Obsidian vault directories
+obsdir/
+
 # Test and linting cache
 .coverage
 htmlcov/

@@ -35,8 +35,7 @@ services:
     # Environment variables
     # Load from .env file if present (create one if you need custom values)
     env_file:
-      - path: .env
-        required: false
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

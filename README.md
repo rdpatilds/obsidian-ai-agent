@@ -102,7 +102,7 @@ LLM_MODEL=claude-sonnet-4-5   # Provider-specific model
 LLM_API_KEY=sk-ant-...        # Your provider API key
 
 # Vault Access
-OBSIDIAN_VAULT_PATH=/absolute/path/to/your/vault
+OBSIDIAN_VAULT_PATH=/home/user/projects/obsidian-ai-agent/obsdir
 ```
 
 **Optional: PostgreSQL (for conversation history)**
